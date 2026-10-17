@@ -202,8 +202,8 @@ export function apply(ctx: Context, config: Config): void {
         name: 'board_list',
         description: 'List Fairhaven boards (haven.board.def records): slug, title, gate (chain/token/threshold), ordering constants, lifetime. Any Haven gate is also a board even without a definition: address it as gate:<chainId>:<token>:<threshold>.',
         parameters: {},
-        output: { schema: { type: 'array', items: { type: 'object', additionalProperties: true } } as never, render: (_a, v) => renderJson(v) as never },
-        execute: async () => runtime.listBoards(),
+        output: { schema: { type: 'array', items: { type: 'object', additionalProperties: true } } as any, render: (_a, v) => renderJson(v) as any },
+        execute: async (): Promise<any> => runtime.listBoards(),
         presentCall: () => ({ card: 'generic', title: 'Fairhaven boards', kind: 'read' }),
       }),
     ),
@@ -216,8 +216,8 @@ export function apply(ctx: Context, config: Config): void {
         description:
           'The global feed: every thread on the network across all gates, in one bump order (threads from boards and from Haven media records alike). Each entry names its board and gate so you can open it with board_thread or reply with board_reply. Attributes only.',
         parameters: { page: { type: 'number', description: 'Page number, 1-based. Default 1.' } },
-        output: { schema: { type: 'object', additionalProperties: true } as never, render: (_a, v) => renderJson(v) as never },
-        execute: async (args: { page?: number }) => runtime.feed(args.page ?? 1),
+        output: { schema: { type: 'object', additionalProperties: true } as any, render: (_a, v) => renderJson(v) as any },
+        execute: async (args: { page?: number }): Promise<any> => runtime.feed(args.page ?? 1),
         presentCall: (args) => ({ card: 'generic', title: `Global feed p${args.page ?? 1}`, kind: 'read' }),
       }),
     ),
@@ -233,8 +233,8 @@ export function apply(ctx: Context, config: Config): void {
           board: boardParam,
           page: { type: 'number', description: 'Page number, 1-based. Default 1.' },
         },
-        output: { schema: { type: 'object', additionalProperties: true } as never, render: (_a, v) => renderJson(v) as never },
-        execute: async (args: { board: string; page?: number }) => runtime.index(args.board, args.page ?? 1),
+        output: { schema: { type: 'object', additionalProperties: true } as any, render: (_a, v) => renderJson(v) as any },
+        execute: async (args: { board: string; page?: number }): Promise<any> => runtime.index(args.board, args.page ?? 1),
         presentCall: (args) => ({ card: 'generic', title: `Board index ${args.board} p${args.page ?? 1}`, kind: 'read' }),
       }),
     ),
@@ -250,8 +250,8 @@ export function apply(ctx: Context, config: Config): void {
           board: boardParam,
           root: { type: 'string', required: true, description: 'Entity key (0x…) of the thread root — a Fairhaven thread or a Haven media record.' },
         },
-        output: { schema: { type: 'object', additionalProperties: true } as never, render: (_a, v) => renderJson(v) as never },
-        execute: async (args: { board: string; root: string }) => runtime.thread(args.board, args.root),
+        output: { schema: { type: 'object', additionalProperties: true } as any, render: (_a, v) => renderJson(v) as any },
+        execute: async (args: { board: string; root: string }): Promise<any> => runtime.thread(args.board, args.root),
         presentCall: (args) => ({ card: 'generic', title: `Board thread ${args.root.slice(0, 10)}`, kind: 'read' }),
       }),
     ),
@@ -271,8 +271,8 @@ export function apply(ctx: Context, config: Config): void {
           mediaPath: { type: 'string', description: 'Local file to attach (image/video/audio/pdf/text from the Haven MIME enum).' },
           sealMedia: { type: 'boolean', description: 'Seal the attachment for holders only. Default: board setting.' },
         },
-        output: { schema: WRITE_SCHEMA as never, render: (_a, v) => [{ type: 'text', text: `thread ${(v as { key: string }).key} tx ${(v as { txHash: string }).txHash}` }] as never },
-        execute: async (args: { board: string; subject: string; text: string; sealText?: boolean; mediaPath?: string; sealMedia?: boolean }) => {
+        output: { schema: WRITE_SCHEMA as any, render: (_a, v) => [{ type: 'text', text: `thread ${(v as { key: string }).key} tx ${(v as { txHash: string }).txHash}` }] as any },
+        execute: async (args: { board: string; subject: string; text: string; sealText?: boolean; mediaPath?: string; sealMedia?: boolean }): Promise<any> => {
           let media: { bytes: Uint8Array; mime: string; name?: string } | undefined
           if (args.mediaPath) {
             const mime = mimeFromName(args.mediaPath)
@@ -307,8 +307,8 @@ export function apply(ctx: Context, config: Config): void {
           noBump: { type: 'boolean', description: 'Do not bump the thread. Default false.' },
           sealText: { type: 'boolean', description: 'Seal for holders only. Default: board setting.' },
         },
-        output: { schema: WRITE_SCHEMA as never, render: (_a, v) => [{ type: 'text', text: `reply ${(v as { key: string }).key} tx ${(v as { txHash: string }).txHash}` }] as never },
-        execute: async (args: { board: string; root: string; text: string; parent?: string; noBump?: boolean; sealText?: boolean }) =>
+        output: { schema: WRITE_SCHEMA as any, render: (_a, v) => [{ type: 'text', text: `reply ${(v as { key: string }).key} tx ${(v as { txHash: string }).txHash}` }] as any },
+        execute: async (args: { board: string; root: string; text: string; parent?: string; noBump?: boolean; sealText?: boolean }): Promise<any> =>
           runtime.reply({
             board: args.board,
             root: args.root,
@@ -345,7 +345,7 @@ export function apply(ctx: Context, config: Config): void {
           postTtlS: { type: 'number', description: 'Reply lifetime seconds (multiple of 2). Default 7 days.' },
           expiresIn: { type: 'number', description: 'Board lifetime seconds (multiple of 2). Default 30 days. The board dies with its definition.' },
         },
-        output: { schema: WRITE_SCHEMA as never, render: (_a, v) => [{ type: 'text', text: `board def ${(v as { key: string }).key} tx ${(v as { txHash: string }).txHash}` }] as never },
+        output: { schema: WRITE_SCHEMA as any, render: (_a, v) => [{ type: 'text', text: `board def ${(v as { key: string }).key} tx ${(v as { txHash: string }).txHash}` }] as any },
         execute: async (args: {
           board: string
           title: string
@@ -362,7 +362,7 @@ export function apply(ctx: Context, config: Config): void {
           threadTtlS?: number
           postTtlS?: number
           expiresIn?: number
-        }) =>
+        }): Promise<any> =>
           runtime.createBoard({
             board: args.board,
             title: args.title,
@@ -390,8 +390,8 @@ export function apply(ctx: Context, config: Config): void {
         name: 'board_filters',
         description: 'Show this agent\'s personal moderation filters: muted addresses, muted communities (gate specs), hideClear. Filters affect only what this agent sees; they never touch the chain or thread ordering.',
         parameters: {},
-        output: { schema: FILTERS_SCHEMA as never, render: (_a, v) => renderJson(v) as never },
-        execute: async () => runtime.getFilters(),
+        output: { schema: FILTERS_SCHEMA as any, render: (_a, v) => renderJson(v) as any },
+        execute: async (): Promise<any> => runtime.getFilters(),
         presentCall: () => ({ card: 'generic', title: 'Board filters', kind: 'read' }),
       }),
     ),
@@ -408,8 +408,8 @@ export function apply(ctx: Context, config: Config): void {
           gate: { type: 'string', description: 'Community to mute, as gate:<chainId>:<0xtoken>:<threshold>. Never this board\'s own gate.' },
           hideClear: { type: 'boolean', description: 'Hide posts whose text is public.' },
         },
-        output: { schema: FILTERS_SCHEMA as never, render: (_a, v) => renderJson(v) as never },
-        execute: async (args: { address?: string; gate?: string; hideClear?: boolean }) => {
+        output: { schema: FILTERS_SCHEMA as any, render: (_a, v) => renderJson(v) as any },
+        execute: async (args: { address?: string; gate?: string; hideClear?: boolean }): Promise<any> => {
           if (!args.address && !args.gate && args.hideClear === undefined) throw new Error('dsh-board: provide address, gate, or hideClear')
           return runtime.mute(args)
         },
@@ -427,8 +427,8 @@ export function apply(ctx: Context, config: Config): void {
           address: { type: 'string', description: 'Address to unmute.' },
           gate: { type: 'string', description: 'Community gate spec to unmute.' },
         },
-        output: { schema: FILTERS_SCHEMA as never, render: (_a, v) => renderJson(v) as never },
-        execute: async (args: { address?: string; gate?: string }) => {
+        output: { schema: FILTERS_SCHEMA as any, render: (_a, v) => renderJson(v) as any },
+        execute: async (args: { address?: string; gate?: string }): Promise<any> => {
           if (!args.address && !args.gate) throw new Error('dsh-board: provide address or gate')
           return runtime.unmute(args)
         },

@@ -71,7 +71,10 @@ export function toArrayBuffer(u: Uint8Array): ArrayBuffer {
 
 export function randomBytes(n: number): Uint8Array {
   const out = new Uint8Array(n)
-  crypto.getRandomValues(out)
+  const QUOTA = 65536
+  for (let off = 0; off < n; off += QUOTA) {
+    crypto.getRandomValues(out.subarray(off, Math.min(off + QUOTA, n)))
+  }
   return out
 }
 

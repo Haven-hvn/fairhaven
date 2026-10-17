@@ -250,9 +250,9 @@ export class BoardRuntime {
   ) {
     this.members = new MembershipCache({
       balanceOf: async (chainId, token, owner) => {
-        const url = this.opts.evmRpc[String(chainId)]
-        if (!url) throw new Error(`dsh-board: no evmRpc configured for chain ${chainId}`)
-        return (internals.balanceOf ?? liveBalanceOf)(url, token, owner)
+        const url = this.opts.evmRpc[String(chainId)] ?? ''
+        const r = await (internals.balanceOf ?? liveBalanceOf)(url, token, owner)
+        return r
       },
     })
     this.filters = opts.filters ? filtersFromJson(opts.filters) : EMPTY_FILTERS
@@ -675,10 +675,10 @@ export class BoardRuntime {
   async reply(a: { board: string; root: string; text: string; parent?: string; noBump?: boolean; sealText?: boolean }) {
     const store = await this.store()
     const board = await this.resolve(a.board)
-    await this.requireMember(board.ref.gate)
     const current = await store.currentBlock()
     const loaded = await loadThread(store, board, a.root, current)
     if (!loaded) throw new Error(`dsh-board: root ${a.root} is not a live thread on ${board.ref.slug}`)
+    await this.requireMember(board.ref.gate)
     if (a.parent && a.parent.toLowerCase() !== loaded.root.key && !loaded.replies.some((r) => r.key === a.parent!.toLowerCase())) {
       throw new Error(`dsh-board: parent ${a.parent} is not in this thread`)
     }

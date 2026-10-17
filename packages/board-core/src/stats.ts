@@ -131,7 +131,7 @@ export function computeBoardStats(roots: readonly ThreadRecord[], replies: reado
     sealedTextShare: posts ? sealedText / posts : 0,
     sealedMediaShare: threadsWithMedia ? sealedMedia / threadsWithMedia : 0,
     threadsWithMedia,
-    mediaMix: [...mix.entries()].map(([mime, count]) => ({ mime, count })).sort((a, b) => b.count - a.count),
+    mediaMix: [...mix.entries()].map(([mime, count]) => ({ mime, count })).sort((a, b) => b.count - a.count || b.mime.localeCompare(a.mime)),
     repliesPerThread: { median: median(perThread), max: Math.max(0, ...perThread), silent: perThread.filter((n) => n === 0).length },
     last24h,
     last7d,

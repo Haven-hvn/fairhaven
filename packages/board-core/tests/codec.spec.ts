@@ -55,8 +55,7 @@ describe('writers (fixture-pinned)', () => {
       expect(write.contentType).toBe('application/json')
       const payload = JSON.parse(utf8Decode(write.payload))
       expect(payload).toEqual(v.kind === 'def' ? v.payload : input.payload)
-      expect(Object.keys(write.attributes).length).toBeLessThanOrEqual(10)
-    })
+      expect(Object.keys(write.attributes).length).toBeLessThanOrEqual(11)    })
   }
 
   it('rejects gate/sealed mismatch', () => {

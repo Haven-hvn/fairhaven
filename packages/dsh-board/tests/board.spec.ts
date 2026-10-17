@@ -280,7 +280,8 @@ describe('dsh-board runtime', () => {
     const OTHER = `0x${'9'.repeat(40)}`
     internals.balanceOf = async (_rpc, token, owner) => (token === OTHER ? (owner === HUMAN ? 1n : 0n) : balances[owner.toLowerCase()] ?? 0n)
     await rt.reply({ board: 'conf.back', root: hello.key, text: 'agent here', sealText: false })
-
+    const idxBeforeMute = await rt.index('conf.back')
+ 
     // Mute the other community: HUMAN's thread and HUMAN's keynote vanish, the agent's reply stays.
     const f1 = await rt.mute({ gate: `gate:1:${OTHER}:1` })
     expect(f1.communities).toEqual([`gate:1:${OTHER}:1`])
@@ -289,7 +290,7 @@ describe('dsh-board runtime', () => {
     expect(idx1.hidden.map((h) => h.reason)).toContain('holder of 0x999999… on chain 1 muted')
     // Order is unchanged underneath: unmuting restores the exact same key sequence.
     await rt.unmute({ gate: `gate:1:${OTHER}:1` })
-    expect((await rt.index('conf.back')).threads.map((t) => t.key)).toEqual(idx0.threads.map((t) => t.key))
+    expect((await rt.index('conf.back')).threads.map((t) => t.key)).toEqual(idxBeforeMute.threads.map((t) => t.key))
     await rt.mute({ gate: `gate:1:${OTHER}:1` })
 
     const t1 = await rt.thread('conf.back', hello.key)

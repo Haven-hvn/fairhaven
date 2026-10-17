@@ -50,7 +50,8 @@ const nextConfig = {
       }
     }
     config.plugins.push(
-      new webpack.IgnorePlugin({ resourceRegExp: /^ws$/ }),
+      // ws is stubbed via resolve.alias (src/mocks/ws.js); do not ignore it,
+      // otherwise ethers' `export { WebSocket } from "ws"` loses the export.
       new webpack.IgnorePlugin({ resourceRegExp: /^@base-org\/account/ }),
       new webpack.IgnorePlugin({ resourceRegExp: /^@x402(\/.*)?$/ }),
       new webpack.IgnorePlugin({ resourceRegExp: /^@walletconnect\/ethereum-provider/ }),
@@ -72,7 +73,6 @@ const nextConfig = {
       ...wsAliasEntries,
     }
     config.resolve.extensionAlias = { ...config.resolve.extensionAlias, '.js': ['.ts', '.js'] }
-    console.error('WS ALIAS:', config.resolve.alias?.ws, 'isServer:', isServer)
     return config
   },
 }

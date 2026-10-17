@@ -2,8 +2,11 @@ packages:
   - packages/board-core
   - packages/dsh-board
   - apps/web
-ignoredBuiltDependencies:
-  - '@reown/appkit'
 allowBuilds:
   '@reown/appkit': set this to true or false
+  esbuild: set this to true or false
 autoInstallPeers: false
+ignoredBuiltDependencies:
+  - '@reown/appkit'
+onlyBuiltDependencies:
+  - esbuild
