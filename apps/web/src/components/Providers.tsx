@@ -8,7 +8,10 @@ import { env } from '@/lib/env'
 import { networks, wagmiAdapter, wagmiConfig } from '@/lib/wallet'
 import { useSession } from '@/store/session'
 
-if (typeof window !== 'undefined' && env.walletConnectProjectId) {
+if (env.walletConnectProjectId) {
+  // Module level, including SSR prerender: with `ssr: true` on the adapter
+  // this is safe server-side, and static export prerenders components that
+  // call `useAppKit()`.
   createAppKit({
     adapters: [wagmiAdapter],
     projectId: env.walletConnectProjectId,
