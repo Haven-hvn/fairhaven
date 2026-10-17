@@ -13,8 +13,8 @@
   "dependencies": {
     "@arkiv-network/sdk": "^0.8.1",
     "@fairhaven/board-core": "workspace:*",
-    "@filoz/synapse-sdk": "2.0.2",
-    "@icp-sdk/core": "6.1.0",
+    "@filoz/synapse-core": "^0.10.0",
+    "@filoz/synapse-sdk": "2.0.2",    "@icp-sdk/core": "6.1.0",
     "@icp-sdk/vetkeys": "0.7.0",
     "@react-native-async-storage/async-storage": "3.1.1",
     "@reown/appkit": "1.8.24",

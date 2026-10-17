@@ -72,6 +72,7 @@ const nextConfig = {
       ...wsAliasEntries,
     }
     config.resolve.extensionAlias = { ...config.resolve.extensionAlias, '.js': ['.ts', '.js'] }
+    console.error('WS ALIAS:', config.resolve.alias?.ws, 'isServer:', isServer)
     return config
   },
 }

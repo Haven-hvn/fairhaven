@@ -112,8 +112,7 @@ export function OpView({ thread, ctx, onIndex }: { thread: ThreadRecord; ctx: Po
         open.state === 'clear' || open.state === 'open' ? (
           open.text ? <Body text={open.text} knownKeys={ctx.knownKeys} previewFor={ctx.previewFor} /> : null
         ) : (
-          <FrostText sealedBytes={sealedLen} state={open.state} gate={ctx.gate} {...(open.reason ? { reason: open.reason } : {})} />
-        )
+          <FrostText sealedBytes={sealedLen} state={open.state} gate={ctx.gate} {...(((open as { reason?: string }).reason) ? { reason: (open as { reason?: string }).reason } : {})} />        )
       ) : thread.sealed & 1 ? (
         <FrostText sealedBytes={256} state="locked" gate={ctx.gate} />
       ) : null}
@@ -159,8 +158,7 @@ export function ReplyView({ post, ctx, pending }: { post: PostRecord; ctx: PostC
       {open.state === 'clear' || open.state === 'open' ? (
         <Body text={open.text} knownKeys={ctx.knownKeys} previewFor={ctx.previewFor} />
       ) : post.payload ? (
-        <FrostText sealedBytes={sealedLen} state={open.state} gate={ctx.gate} {...(open.reason ? { reason: open.reason } : {})} />
-      ) : (
+        <FrostText sealedBytes={sealedLen} state={open.state} gate={ctx.gate} {...(((open as { reason?: string }).reason) ? { reason: (open as { reason?: string }).reason } : {})} />      ) : (
         <FrostText sealedBytes={256} state="locked" gate={ctx.gate} />
       )}
     </div>
