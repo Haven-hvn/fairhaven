@@ -2,19 +2,19 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { useAccount } from 'wagmi'
-import { useAppKit } from '@reown/appkit/react'
 import type { ReactNode } from 'react'
 import { CHAIN_LABEL, VARIANT_TO_EIP155, epochEndUnix, type ResolvedBoard } from '@fairhaven/board-core'
 import { useMyMembership, useUnlock } from '@/hooks/useBoard'
+import { useMounted } from '@/hooks/useMounted'
 import { tokenIdentity } from '@/lib/evm'
-import { env } from '@/lib/env'
+import { modal } from '@/lib/wallet'
 import { Mark } from './Mark'
 
 export function GateCard({ board }: { board: ResolvedBoard }) {
   const gate = board.ref.gate
   const chainId = VARIANT_TO_EIP155[gate.chain]
   const { isConnected } = useAccount()
-  const appkit = env.walletConnectProjectId ? useAppKit() : null
+  const mounted = useMounted()
   const me = useMyMembership(gate)
   const { unlocked, epoch, busy, error, unlock, canUnlock } = useUnlock(gate)
   const ident = useQuery({ queryKey: ['ident', chainId, gate.tokenAddress], queryFn: () => tokenIdentity(chainId, gate.tokenAddress), staleTime: Infinity })
@@ -22,12 +22,19 @@ export function GateCard({ board }: { board: ResolvedBoard }) {
   const until = new Date(epochEndUnix(epoch) * 1000).toLocaleDateString()
 
   let copy: ReactNode
-  if (!isConnected) {
+  if (!mounted) {
+    copy = (
+      <>
+        Members hold the gate token on {CHAIN_LABEL[gate.chain]}.
+        <small>Anyone can read what members chose to make public.</small>
+      </>
+    )
+  } else if (!isConnected) {
     copy = (
       <>
         Members hold at least <b>{gate.threshold.toString()} {tokenName}</b> on {CHAIN_LABEL[gate.chain]}.
         <small>Anyone can read what members chose to make public. Connect a wallet that holds the token to read and post everything.</small>
-        {appkit && <button onClick={() => appkit.open()}>Connect wallet</button>}
+        {modal && <button onClick={() => modal?.open()}>Connect wallet</button>}
       </>
     )
   } else if (me.isLoading) {

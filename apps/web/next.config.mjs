@@ -23,6 +23,9 @@ function ethersWsAliasPaths(ethersRoot) {
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'export',
+  // IPFS gateways resolve directories, not extensionless files: emit
+  // /boards/index.html instead of /boards.html so every route loads.
+  trailingSlash: true,
   images: { unoptimized: true },
   typescript: { ignoreBuildErrors: true },
   productionBrowserSourceMaps: false,

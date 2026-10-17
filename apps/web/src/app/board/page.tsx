@@ -11,6 +11,7 @@ import { GateCard } from '@/components/GateCard'
 import { PostForm } from '@/components/PostForm'
 import { Pager } from '@/components/Pager'
 import { OpView, ReplyView, type PostContext } from '@/components/Post'
+import { useShallow } from 'zustand/react/shallow'
 import { useSession } from '@/store/session'
 import { blurhashDataUrl, mimeLabel } from '@/lib/media'
 import { ShareLink } from '@/components/ShareLink'
@@ -32,7 +33,7 @@ function BoardInner() {
   const view = params.get('view') === 'catalog' ? 'catalog' : 'index'
   const board = useResolvedBoard(slug)
   const { page: pg, currentBlock } = useIndex(board.data, page)
-  const pending = useSession((s) => s.pending.filter((p) => p.board === board.data?.ref.slug && !p.root && !p.key && !p.error))
+  const pending = useSession(useShallow((s) => s.pending.filter((p) => p.board === board.data?.ref.slug && !p.root && !p.key && !p.error)))
   const [quote, setQuote] = useState<string | null>(null)
   const visible = useMemo(() => pg.data?.items.flatMap((i) => [i.thread, ...i.tail]) ?? [], [pg.data])
   const { hidden, showStubs } = useHidden(visible)

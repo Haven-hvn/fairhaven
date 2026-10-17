@@ -2,14 +2,20 @@
 
 import { useState } from 'react'
 import { CHAIN_LABEL, gateSpecOf, parseGateSpec, shortAddress } from '@fairhaven/board-core'
+import { useMounted } from '@/hooks/useMounted'
 import { useFilters } from '@/store/filters'
 
 export default function FiltersPage() {
   const { filters, unmuteAddress, muteAddress, unmuteCommunity, muteCommunity, setHideClear, setShowStubs, clear } = useFilters()
+  const mounted = useMounted()
   const [addr, setAddr] = useState('')
   const [spec, setSpec] = useState('')
   const addrOk = /^0x[0-9a-fA-F]{40}$/.test(addr.trim())
   const specGate = parseGateSpec(spec)
+
+  // Saved filters rehydrate synchronously on the client, so SSR (defaults)
+  // and a returning browser would disagree. Static until mounted.
+  if (!mounted) return <div className="muted">Loading…</div>
 
   return (
     <div>

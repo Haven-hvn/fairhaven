@@ -1,35 +1,25 @@
 'use client'
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { createAppKit } from '@reown/appkit/react'
 import { useEffect, useState, type ReactNode } from 'react'
-import { WagmiProvider, type Config } from 'wagmi'
-import { env } from '@/lib/env'
-import { networks, wagmiAdapter, wagmiConfig } from '@/lib/wallet'
+import { cookieToInitialState, WagmiProvider, type Config } from 'wagmi'
+import { wagmiConfig } from '@/lib/wallet'
 import { useSession } from '@/store/session'
 
-if (env.walletConnectProjectId) {
-  // Module level, including SSR prerender: with `ssr: true` on the adapter
-  // this is safe server-side, and static export prerenders components that
-  // call `useAppKit()`.
-  createAppKit({
-    adapters: [wagmiAdapter],
-    projectId: env.walletConnectProjectId,
-    networks,
-    metadata: { name: 'Fairhaven', description: 'Gated, pseudonymous, ephemeral boards.', url: env.appUrl, icons: [] },
-    themeMode: 'light',
-    features: { analytics: false },
-  })
+function getClientCookies(): string | null {
+  if (typeof document !== 'undefined') return document.cookie || null
+  return null
 }
 
 export function Providers({ children }: { children: ReactNode }) {
   const [qc] = useState(() => new QueryClient({ defaultOptions: { queries: { refetchOnWindowFocus: false, retry: 1 } } }))
+  const [initialState] = useState(() => cookieToInitialState(wagmiConfig as Config, getClientCookies()))
   const theme = useSession((s) => s.theme)
   useEffect(() => {
     document.documentElement.dataset.theme = theme
   }, [theme])
   return (
-    <WagmiProvider config={wagmiConfig as Config}>
+    <WagmiProvider config={wagmiConfig as Config} initialState={initialState}>
       <QueryClientProvider client={qc}>{children}</QueryClientProvider>
     </WagmiProvider>
   )

@@ -8,6 +8,7 @@ import { backlinks, blockToUnix, gateKey, type IndexPageItem, type ResolvedBoard
 import { useGlobalFeed } from '@/hooks/useBoard'
 import { useHidden } from '@/hooks/useHidden'
 import { OpView, ReplyView, type PostContext } from '@/components/Post'
+import { useShallow } from 'zustand/react/shallow'
 import { useSession } from '@/store/session'
 
 /**
@@ -31,7 +32,7 @@ function FeedInner() {
   const { page: pg, currentBlock, boards } = useGlobalFeed(page)
   const visible = useMemo(() => pg.data?.items.flatMap((i) => [i.thread, ...i.tail]) ?? [], [pg.data])
   const { hidden, showStubs } = useHidden(visible)
-  const pending = useSession((s) => s.pending.filter((p) => !p.root && !p.key && !p.error))
+  const pending = useSession(useShallow((s) => s.pending.filter((p) => !p.root && !p.key && !p.error)))
 
   const observed = Math.floor(Date.now() / 1000)
   const blockToDate = (block: number) => (currentBlock !== undefined ? new Date(blockToUnix(block, { currentBlock, observedAtUnix: observed }) * 1000) : undefined)

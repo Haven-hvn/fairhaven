@@ -2,13 +2,13 @@
 
 import Link from 'next/link'
 import { useAccount, useDisconnect } from 'wagmi'
-import { useAppKit } from '@reown/appkit/react'
 import { shortAddress } from '@fairhaven/board-core'
 import { useBoards } from '@/hooks/useBoard'
+import { useMounted } from '@/hooks/useMounted'
 import { useSession } from '@/store/session'
 import { forgetKeys } from '@/lib/aol'
 import { clearOpened } from '@/lib/open-cache'
-import { env } from '@/lib/env'
+import { modal } from '@/lib/wallet'
 
 export function Navbar() {
   const boards = useBoards()
@@ -16,7 +16,10 @@ export function Navbar() {
   const { disconnect } = useDisconnect()
   const theme = useSession((s) => s.theme)
   const setTheme = useSession((s) => s.setTheme)
-  const appkit = env.walletConnectProjectId ? useAppKit() : null
+  // Wallet + theme state legitimately differ between SSR and the browser
+  // (connection, modal, saved theme), so both render static placeholders
+  // until mounted. See hooks/useMounted.
+  const mounted = useMounted()
 
   return (
     <div className="nav">
@@ -40,20 +43,24 @@ export function Navbar() {
       <span className="spacer" />
       <span>
         [
-        <a
-          href="#"
-          onClick={(e) => {
-            e.preventDefault()
-            setTheme(theme === 'daybreak' ? 'parchment' : 'daybreak')
-          }}
-        >
-          {theme === 'daybreak' ? 'parchment' : 'daybreak'}
-        </a>
+        {mounted ? (
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault()
+              setTheme(theme === 'daybreak' ? 'parchment' : 'daybreak')
+            }}
+          >
+            {theme === 'daybreak' ? 'parchment' : 'daybreak'}
+          </a>
+        ) : (
+          <span className="muted">theme</span>
+        )}
         ]
       </span>
       <span>
         [
-        {isConnected && address ? (
+        {mounted && isConnected && address ? (
           <a
             href="#"
             title={address}
@@ -66,19 +73,19 @@ export function Navbar() {
           >
             {shortAddress(address)} · disconnect
           </a>
-        ) : appkit ? (
+        ) : mounted && modal ? (
           <a
             href="#"
             onClick={(e) => {
               e.preventDefault()
-              appkit.open()
+              modal?.open()
             }}
           >
             connect wallet
           </a>
         ) : (
-          <span className="muted" title="Set NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID">
-            wallet unavailable
+          <span className="muted" title={mounted ? 'Set NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID' : undefined}>
+            {mounted ? 'wallet unavailable' : 'connect wallet'}
           </span>
         )}
         ]

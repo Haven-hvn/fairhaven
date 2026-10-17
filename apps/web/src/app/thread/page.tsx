@@ -10,6 +10,7 @@ import { useHidden } from '@/hooks/useHidden'
 import { GateCard } from '@/components/GateCard'
 import { PostForm } from '@/components/PostForm'
 import { OpView, ReplyView, type PostContext } from '@/components/Post'
+import { useShallow } from 'zustand/react/shallow'
 import { useSession } from '@/store/session'
 import type { QuoteTarget } from '@/components/Body'
 import { ShareLink, threadPath } from '@/components/ShareLink'
@@ -32,7 +33,7 @@ function ThreadInner() {
   const thread = useThread(board.data, key)
   const block = useCurrentBlock()
   const [quote, setQuote] = useState<string | null>(null)
-  const pending = useSession((s) => s.pending.filter((p) => p.root === key?.toLowerCase() && !p.key && !p.error))
+  const pending = useSession(useShallow((s) => s.pending.filter((p) => p.root === key?.toLowerCase() && !p.key && !p.error)))
   const { hidden, showStubs } = useHidden(thread.data && !thread.data.rootHidden ? [thread.data.root, ...thread.data.replies] : undefined)
 
   if (!slug || !key) return <div className="notice">No thread given.</div>

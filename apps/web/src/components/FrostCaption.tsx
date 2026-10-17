@@ -2,11 +2,12 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { useAccount } from 'wagmi'
-import { useAppKit } from '@reown/appkit/react'
 import { CHAIN_LABEL, VARIANT_TO_EIP155, type BoardGate } from '@fairhaven/board-core'
 import { useMyMembership, useUnlock } from '@/hooks/useBoard'
+import { useMounted } from '@/hooks/useMounted'
 import { tokenIdentity } from '@/lib/evm'
 import { env } from '@/lib/env'
+import { modal } from '@/lib/wallet'
 
 export interface FrostAction {
   /** One line under the frost, e.g. "Members only · hold ≥ 1 BACK on Base · connect wallet". */
@@ -24,7 +25,7 @@ export interface FrostAction {
  */
 export function useFrostAction(gate: BoardGate, state: 'locked' | 'unlocking' | 'failed' | 'foreign', reason?: string, foreignHref?: string): FrostAction {
   const { isConnected } = useAccount()
-  const appkit = env.walletConnectProjectId ? useAppKit() : null
+  const mounted = useMounted()
   const me = useMyMembership(gate)
   const { unlock, busy, canUnlock } = useUnlock(gate)
   const chainId = VARIANT_TO_EIP155[gate.chain]
@@ -33,6 +34,10 @@ export function useFrostAction(gate: BoardGate, state: 'locked' | 'unlocking' | 
   const need = `hold ≥ ${gate.threshold.toString()} ${token} on ${CHAIN_LABEL[gate.chain]}`
   const toGate = () => document.getElementById('gate')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 
+  // Static until mounted: connection state differs between SSR and browser.
+  if (!mounted) {
+    return { label: 'Members only', verb: '', run: () => undefined }
+  }
   if (state === 'foreign') {
     return { label: `Sealed by another Haven app (${reason ?? 'other protocol version'})`, verb: 'open in haven-dapp', run: () => window.open(foreignHref ?? env.havenDappUrl, '_blank', 'noreferrer') }
   }
@@ -43,7 +48,7 @@ export function useFrostAction(gate: BoardGate, state: 'locked' | 'unlocking' | 
     return { label: busy ?? 'Opening…', verb: '', run: () => undefined }
   }
   if (!isConnected) {
-    return { label: `Members only · ${need}`, verb: 'connect wallet', run: () => (appkit ? appkit.open() : toGate()) }
+    return { label: `Members only · ${need}`, verb: 'connect wallet', run: () => (modal ? modal.open() : toGate()) }
   }
   if (me.isLoading) {
     return { label: `Members only · ${need}`, verb: 'checking…', run: toGate }
