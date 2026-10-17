@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { CHAIN_LABEL, parseGateSpec } from '@fairhaven/board-core'
 import { useBoards } from '@/hooks/useBoard'
+import { RateLimitNotice } from '@/components/RateLimitNotice'
 
 export default function BoardsPage() {
   const boards = useBoards()
@@ -21,7 +22,7 @@ export default function BoardsPage() {
         A board is a Haven gate. Hold the token, read and post everything; otherwise see what members made public. Anything other Haven apps publish under a gate shows up as a thread. The <Link href="/">front page</Link> is every board at once.
       </p>
       {boards.isLoading && <div className="muted">Loading from Arkiv…</div>}
-      {boards.error && <div className="error">Could not reach Arkiv: {String(boards.error)}</div>}
+      {boards.error && <RateLimitNotice error={boards.error} />}
       {boards.data && boards.data.length === 0 && <div className="muted">No board definitions yet. Open a gate below or define one.</div>}
       {boards.data && boards.data.length > 0 && (
         <table className="boards">

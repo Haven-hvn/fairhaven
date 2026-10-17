@@ -12,7 +12,8 @@ function getClientCookies(): string | null {
 }
 
 export function Providers({ children }: { children: ReactNode }) {
-  const [qc] = useState(() => new QueryClient({ defaultOptions: { queries: { refetchOnWindowFocus: false, retry: 1 } } }))
+  // Never retry a 429 (it only burns more anonymous quota); one retry otherwise.
+  const [qc] = useState(() => new QueryClient({ defaultOptions: { queries: { refetchOnWindowFocus: false, retry: (count, e) => count < 1 && !(e instanceof Error && (e.name === 'RateLimitError' || /\b429\b|ANON_COST_LIMITED/.test(e.message))) } } }))
   const [initialState] = useState(() => cookieToInitialState(wagmiConfig as Config, getClientCookies()))
   const theme = useSession((s) => s.theme)
   useEffect(() => {

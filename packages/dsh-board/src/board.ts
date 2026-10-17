@@ -144,11 +144,13 @@ export const internals: {
 async function liveStore(opts: BoardRuntimeOpts): Promise<EntityStore & { currentBlock(): Promise<number | undefined> }> {
   const { createPublicClient } = await import('@arkiv-network/sdk')
   const chains = await import('@arkiv-network/sdk/chains')
-  const { and, eq } = await import('@arkiv-network/sdk/query')
+  const { and, eq, or } = await import('@arkiv-network/sdk/query')
+  const { key: keyVal } = await import('@arkiv-network/sdk')
+  const { isRateLimitError } = await import('@fairhaven/board-core')
   const { http } = await import('viem')
   const chain = opts.arkivRpcUrl.includes('localhost') || opts.arkivRpcUrl.includes('127.0.0.1') ? chains.localhost : chains.tiramisu
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const client: any = createPublicClient({ chain, transport: http(opts.arkivRpcUrl) } as never)
+  const client: any = createPublicClient({ chain, transport: http(opts.arkivRpcUrl, { retryCount: 0 }) } as never)
   const selection = (payload: boolean) => ({ key: true, owner: true, createdAt: true, expiresAt: true, attributes: true, ...(payload ? { payload: true } : {}) })
   return {
     async query(where: WhereClause, q: QueryOptions = {}): Promise<QueryPage> {
@@ -161,11 +163,20 @@ async function liveStore(opts: BoardRuntimeOpts): Promise<EntityStore & { curren
       const entities = ((res.entities ?? []) as unknown[]).map((r) => toRawEntity(r as Record<string, unknown>)).filter((e): e is RawEntity => e !== undefined)
       return { entities, ...(res.cursor ? { cursor: String(res.cursor) } : {}) }
     },
+    async getMany(keys: string[]): Promise<RawEntity[]> {
+      if (keys.length === 0) return []
+      let b = client.select({ key: true, owner: true, createdAt: true, expiresAt: true, attributes: true, payload: true })
+      b = b.where(or(keys.map((k) => eq('$key', keyVal(k as `0x${string}`)))))
+      b = b.limit(Math.max(keys.length, 1))
+      const res = await b.fetch()
+      return ((res.entities ?? []) as unknown[]).map((r) => toRawEntity(r as Record<string, unknown>)).filter((e): e is RawEntity => e !== undefined)
+    },
     async get(key: string): Promise<RawEntity | undefined> {
       try {
         const row = await client.getEntity(key as `0x${string}`)
         return row ? toRawEntity(row as Record<string, unknown>) : undefined
-      } catch {
+      } catch (e) {
+        if (isRateLimitError(e)) throw e
         return undefined
       }
     },

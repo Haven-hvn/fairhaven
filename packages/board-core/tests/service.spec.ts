@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildDefWrite, buildPostWrite, buildThreadWrite } from '../src/codec.ts'
-import { boardOf, globalPage, indexPage, loadBoards, loadGlobalIndex, loadIndex, loadThread, parseGateSpec, resolveBoard, type EntityStore, type WhereClause } from '../src/service.ts'
+import { RateLimitError, boardOf, globalPage, hydratePosts, hydrateThreads, indexPage, loadBoards, loadGlobalIndex, loadIndex, loadThread, parseGateSpec, resolveBoard, type EntityStore, type WhereClause } from '../src/service.ts'
 import type { BoardGate, RawEntity } from '../src/types.ts'
 import { toRawEntity } from '../src/sdk.ts'
 
@@ -10,16 +10,25 @@ const OWNER = `0x${'1'.repeat(40)}`
 /** In-memory store with the SDK's query semantics (all clauses ANDed, equality). */
 class MemStore implements EntityStore {
   rows: RawEntity[] = []
+  getCalls = 0
+  getManyCalls: string[][] = []
+  queryCalls = 0
   add(key: string, attributes: Record<string, unknown>, payload: Uint8Array, createdAt: number, expiresAt?: number): string {
     this.rows.push({ key, owner: OWNER, createdAt, ...(expiresAt !== undefined ? { expiresAt } : {}), attributes, payload })
     return key
   }
   async query(where: WhereClause, opts: { payload?: boolean; limit?: number } = {}) {
+    this.queryCalls++
     const hits = this.rows.filter((r) => where.every(([k, v]) => String(r.attributes[k]) === String(v)))
     return { entities: hits.map((r) => (opts.payload ? r : { ...r, payload: undefined })) as RawEntity[] }
   }
   async get(key: string) {
+    this.getCalls++
     return this.rows.find((r) => r.key === key.toLowerCase())
+  }
+  async getMany(keys: string[]) {
+    this.getManyCalls.push(keys)
+    return this.rows.filter((r) => keys.includes(r.key.toLowerCase()))
   }
 }
 
@@ -135,6 +144,41 @@ describe('service', () => {
     const p = globalPage(g, 1)
     expect(p.items.map((i) => i.thread.subject)).toEqual(['elsewhere', 'first', 'keynote', 'second', 'other'])
     expect(p.items[0]?.tail.map((t) => t.key)).toEqual([K(21)])
+  })
+
+  it('hydrates a page in batched $key chunks, never per-row get', async () => {
+    const s = seed()
+    const board = (await resolveBoard(s, 'conf.back'))!
+    const index = await loadIndex(s, board, 1000)
+    const bare = index.folded.map((f) => ({ ...index.threads.get(f.key)!, payload: undefined }))
+    s.getCalls = 0
+    s.getManyCalls = []
+    const hydrated = await hydrateThreads(s, bare, board.ref)
+    expect(s.getCalls).toBe(0)
+    expect(s.getManyCalls.flat()).toHaveLength(bare.length)
+    expect(hydrated.every((t) => t.payload !== undefined)).toBe(true)
+    const tails = await hydratePosts(s, [...index.posts.values()].map((p) => ({ ...p, payload: undefined })), board.ref)
+    expect(s.getCalls).toBe(0)
+    expect(tails.every((t) => t.payload !== undefined)).toBe(true)
+  })
+
+  it('propagates RateLimitError from batched hydration instead of swallowing it', async () => {
+    const s = seed()
+    const board = (await resolveBoard(s, 'conf.back'))!
+    s.getMany = async () => { throw new RateLimitError('limited', { retryAfterS: 42 }) }
+    const bare = [{ ...([...s.rows][1] ? (await loadIndex(s, board, 1000)).threads.get(K(2))! : undefined)!, payload: undefined }]
+    await expect(hydrateThreads(s, bare, board.ref)).rejects.toBeInstanceOf(RateLimitError)
+  })
+
+  it('bounds the global scan to one page per group and flags truncation', async () => {
+    const s = new MemStore()
+    for (let n = 0; n < 150; n++) {
+      const t = buildThreadWrite({ board: 'conf.back', subject: `t${n}`, gate, payload: { v: 1, text: { clear: 'x' } }, sha256Ct: '9'.repeat(64) })
+      s.add(K(1000 + n), t.attributes, t.payload, 100 + n, 10_000)
+    }
+    const g = await loadGlobalIndex(s, { currentBlock: 1000 })
+    expect(g.truncated).toBe(true)
+    expect(g.threads.size).toBeLessThanOrEqual(100)
   })
 
   it('toRawEntity normalizes SDK rows', () => {

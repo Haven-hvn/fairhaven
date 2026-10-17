@@ -14,6 +14,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useSession } from '@/store/session'
 import type { QuoteTarget } from '@/components/Body'
 import { ShareLink, threadPath } from '@/components/ShareLink'
+import { RateLimitNotice } from '@/components/RateLimitNotice'
 
 export default function ThreadPage() {
   return (
@@ -37,6 +38,8 @@ function ThreadInner() {
   const { hidden, showStubs } = useHidden(thread.data && !thread.data.rootHidden ? [thread.data.root, ...thread.data.replies] : undefined)
 
   if (!slug || !key) return <div className="notice">No thread given.</div>
+  if (board.isError) return <RateLimitNotice error={board.error} />
+  if (thread.isError) return <RateLimitNotice error={thread.error} />
   if (board.isLoading || thread.isLoading) return <div className="muted">Loading thread…</div>
   if (!board.data) return <div className="notice"><h1>Unknown board</h1></div>
   if (thread.data === null || (thread.data && thread.data.rootHidden)) {

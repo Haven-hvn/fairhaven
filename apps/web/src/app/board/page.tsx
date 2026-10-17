@@ -15,6 +15,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useSession } from '@/store/session'
 import { blurhashDataUrl, mimeLabel } from '@/lib/media'
 import { ShareLink } from '@/components/ShareLink'
+import { RateLimitNotice } from '@/components/RateLimitNotice'
 
 export default function BoardPage() {
   return (
@@ -32,7 +33,7 @@ function BoardInner() {
   const page = Math.max(1, Number(params.get('p') ?? '1') || 1)
   const view = params.get('view') === 'catalog' ? 'catalog' : 'index'
   const board = useResolvedBoard(slug)
-  const { page: pg, currentBlock } = useIndex(board.data, page)
+  const { index, page: pg, currentBlock } = useIndex(board.data, page)
   const pending = useSession(useShallow((s) => s.pending.filter((p) => p.board === board.data?.ref.slug && !p.root && !p.key && !p.error)))
   const [quote, setQuote] = useState<string | null>(null)
   const visible = useMemo(() => pg.data?.items.flatMap((i) => [i.thread, ...i.tail]) ?? [], [pg.data])
@@ -40,6 +41,7 @@ function BoardInner() {
 
   if (!slug) return <div className="notice">No board given.</div>
   if (board.isLoading) return <div className="muted">Resolving board…</div>
+  if (board.isError) return <RateLimitNotice error={board.error} />
   if (!board.data) return <div className="notice"><h1>Unknown board</h1>Try a slug from the <Link href="/boards">board list</Link> or a gate: spec.</div>
   const b = board.data
 
@@ -81,6 +83,8 @@ function BoardInner() {
         </div>
       ))}
       {pg.isLoading && <div className="muted">Loading index…</div>}
+      {(index.error || pg.error) && <RateLimitNotice error={index.error ?? pg.error} />}
+      {pg.data?.truncated && <div className="notice">Showing the most recent scan window on the anonymous tier.</div>}
       {pg.data && pg.data.items.length === 0 && pending.length === 0 && <div className="notice">Nothing here yet.</div>}
       {pg.data && view === 'index' && <IndexList items={pg.data.items} board={b.ref.slug} ctx={{ board: b.ref.slug, gate: b.ref.gate, knownKeys: [], blockToDate, hidden, showStubs, onReplyTo: (k) => router.push(`/thread?b=${encodeURIComponent(b.ref.slug)}&k=${k}`), onDeleted: refresh }} />}
       {pg.data && view === 'catalog' && <Catalog items={pg.data.items.filter((i) => !hidden.has(i.thread.key))} board={b.ref.slug} />}

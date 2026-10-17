@@ -84,6 +84,8 @@ Filecoin/Synapse (media bytes).
 3. Per sealed post: `ibeDecryptAesKey(gate.encryptedAesKey, vetKey)` then open the framed bytes. Local, no network.
 4. Every rendered post passes membership: `balanceOf(owner) >= threshold` on the gate chain, cached per owner. Non-members' records are hidden.
 
+**Anonymous-tier read budget.** Every user is unauthenticated on the public RPC: ~100 charged calls/hour/IP, flat 100 units per `arkiv_query`. The read path is built to that budget, not to the data size: payloads are fetched with one batched `$key` OR-query per 50 keys (`hydrateThreads`/`hydratePosts`, never a `getEntity` loop); every index/global scan is capped at `SCAN_ROWS` (100) rows per group — one charged call per group, with `truncated` surfaced in the UI when the cap is hit; idle tabs poll only the free `arkiv_getEntityCount` once a minute and refetch charged data when it moves; the transport uses `retryCount: 0`, in-flight dedupe, and a concurrency cap of 2, and honours `Retry-After`/quota headers as a cooldown. A 429 is a rendered "rate limited, resets in Ns" state on every page, never an "Unknown board" or a silent empty render. Cold front page: ≤ 8 charged calls (1 defs + 1 threads + 1 posts + 5 Haven groups) plus ≤ 2 batched hydration calls.
+
 ## 4. Feed ordering (normative)
 
 Inputs for board `B` with gate `G`: roots `R` = Fairhaven threads `{grp = haven.board.thread, board = B}` ∪ Haven media `{grp ∈ haven.*.full, gate = G}`, and replies

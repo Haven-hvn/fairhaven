@@ -8,6 +8,7 @@ import { useAccount } from 'wagmi'
 import { CHAIN_LABEL, computeBoardStats, computeMyStats, epochEndUnix, currentEpoch, loadReplies, loadRoots, dropExpired, type BoardStats, type MyStats, type ResolvedBoard } from '@fairhaven/board-core'
 import { arkivStore } from '@/lib/arkiv'
 import { useCurrentBlock, useMyMembership, useResolvedBoard, useUnlock } from '@/hooks/useBoard'
+import { RateLimitNotice } from '@/components/RateLimitNotice'
 
 export default function StatsPage() {
   return (
@@ -35,7 +36,7 @@ function StatsInner() {
   const { address } = useAccount()
 
   const data = useQuery({
-    queryKey: ['stats', board.data?.ref.slug, block.data ?? null, address ?? ''],
+    queryKey: ['stats', board.data?.ref.slug, address ?? ''],
     queryFn: async () => {
       const b = board.data as ResolvedBoard
       const current = block.data ?? undefined
@@ -53,6 +54,7 @@ function StatsInner() {
 
   if (!slug) return <div className="notice">No board given.</div>
   if (board.isLoading) return <div className="muted">Resolving board…</div>
+  if (board.isError) return <RateLimitNotice error={board.error} />
   if (!board.data) return <div className="notice"><h1>Unknown board</h1></div>
   const b = board.data
 
@@ -67,7 +69,7 @@ function StatsInner() {
         /{b.ref.slug}/ – statistics
       </h2>
       {data.isLoading && <div className="muted">Counting…</div>}
-      {data.error && <div className="error">{String(data.error)}</div>}
+      {data.error && <RateLimitNotice error={data.error} />}
       {data.data && (
         <>
           <BoardSection b={b} s={data.data.stats} />

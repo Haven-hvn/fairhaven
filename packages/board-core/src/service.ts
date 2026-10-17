@@ -39,27 +39,81 @@ export interface QueryPage {
 export interface EntityStore {
   query(where: WhereClause, opts?: QueryOptions): Promise<QueryPage>
   get(key: string, opts?: { payload?: boolean }): Promise<RawEntity | undefined>
+  /**
+   * Batch read by entity key (one `$key` OR-query per chunk on real stores).
+   * Optional for legacy stores; hydration falls back to `get` only then.
+   */
+  getMany?(keys: string[], opts?: { payload?: boolean }): Promise<RawEntity[]>
+}
+
+/** HTTP 429 from the anonymous Arkiv RPC tier. Never swallowed as "missing". */
+export class RateLimitError extends Error {
+  readonly retryAfterS?: number
+  readonly quotaUsedPercent?: number
+  readonly resetsAt?: number
+  constructor(message = 'Arkiv rate limit reached (anonymous tier)', opts: { retryAfterS?: number; quotaUsedPercent?: number; resetsAt?: number } = {}) {
+    super(message)
+    this.name = 'RateLimitError'
+    if (opts.retryAfterS !== undefined) this.retryAfterS = opts.retryAfterS
+    if (opts.quotaUsedPercent !== undefined) this.quotaUsedPercent = opts.quotaUsedPercent
+    if (opts.resetsAt !== undefined) this.resetsAt = opts.resetsAt
+  }
+}
+
+export function isRateLimitError(e: unknown): e is RateLimitError {
+  if (e instanceof RateLimitError) return true
+  if (typeof e !== 'object' || e === null) return false
+  const o = e as { name?: unknown; status?: unknown; code?: unknown; message?: unknown }
+  if (o.name === 'RateLimitError') return true
+  if (o.status === 429 || o.code === 429) return true
+  return typeof o.message === 'string' && (o.message.includes('ANON_COST_LIMITED') || /\b429\b/.test(o.message))
 }
 
 const PAGE = 100
+/** Hard ceiling for any legacy unbounded scan. */
 const MAX_ROWS = 2000
+/** Keys per batched `$key` query: each extra chunk is another charged call. */
+export const HYDRATE_CHUNK = 50
+/** Rows scanned per query on index/global loads (1 charged call per query). */
+export const SCAN_ROWS = 100
 
-async function queryAll(store: EntityStore, where: WhereClause, opts: QueryOptions = {}): Promise<RawEntity[]> {
+async function queryAll(store: EntityStore, where: WhereClause, opts: QueryOptions & { maxRows?: number } = {}): Promise<RawEntity[]> {
+  return (await queryAllCounted(store, where, opts)).rows
+}
+
+async function queryAllCounted(store: EntityStore, where: WhereClause, opts: QueryOptions & { maxRows?: number } = {}): Promise<{ rows: RawEntity[]; truncated: boolean }> {
+  const cap = opts.maxRows ?? MAX_ROWS
   const out: RawEntity[] = []
   let cursor: string | undefined
-  while (out.length < MAX_ROWS) {
-    const page = await store.query(where, { ...opts, limit: opts.limit ?? PAGE, ...(cursor ? { cursor } : {}) })
+  let truncated = false
+  while (out.length < cap) {
+    const page = await store.query(where, { ...opts, limit: Math.min(opts.limit ?? PAGE, cap - out.length), ...(cursor ? { cursor } : {}) })
     out.push(...page.entities)
+    if (out.length > cap || (out.length >= cap && page.cursor)) truncated = true
     if (!page.cursor || page.entities.length === 0) break
     cursor = page.cursor
   }
-  return out
+  return { rows: out.slice(0, cap), truncated }
+}
+
+async function getManyChunked(store: EntityStore, keys: string[], payload: boolean): Promise<RawEntity[]> {
+  const uniq = [...new Set(keys.map((k) => k.toLowerCase()))]
+  if (uniq.length === 0) return []
+  if (store.getMany) {
+    const out: RawEntity[] = []
+    for (let i = 0; i < uniq.length; i += HYDRATE_CHUNK) {
+      out.push(...(await store.getMany(uniq.slice(i, i + HYDRATE_CHUNK), { payload })))
+    }
+    return out
+  }
+  const rows = await Promise.all(uniq.map((k) => store.get(k, { payload })))
+  return rows.filter((r): r is RawEntity => r !== undefined)
 }
 
 // ── Boards ──────────────────────────────────────────────────────────────
 
 export async function loadBoards(store: EntityStore): Promise<BoardDef[]> {
-  const rows = await queryAll(store, [['grp', GRP_DEF]], { payload: true })
+  const rows = await queryAll(store, [['grp', GRP_DEF]], { payload: true, maxRows: SCAN_ROWS })
   const defs = rows.map((r) => parseEntity(r)).filter((r): r is BoardDef => r?.kind === 'def')
   // First writer wins per slug.
   const bySlug = new Map<string, BoardDef>()
@@ -131,13 +185,15 @@ export interface BoardIndex {
   folded: FoldedThread[]
   threads: Map<string, ThreadRecord>
   posts: Map<string, PostRecord>
+  /** True when a scan hit `SCAN_ROWS` and older rows were not read. */
+  truncated?: boolean
   /** Current block if the store knows it (for expiry filtering). */
   currentBlock?: number
 }
 
 export async function loadRoots(store: EntityStore, board: BoardRef, opts: { payload?: boolean } = {}): Promise<ThreadRecord[]> {
   const ctx = { board }
-  const own = await queryAll(store, [['grp', GRP_THREAD], ['board', board.slug]], opts)
+  const own = await queryAll(store, [['grp', GRP_THREAD], ['board', board.slug]], { ...opts, maxRows: SCAN_ROWS })
   const havenRows = await Promise.all(
     HAVEN_FULL_GROUPS.map((g) =>
       queryAll(
@@ -147,7 +203,7 @@ export async function loadRoots(store: EntityStore, board: BoardRef, opts: { pay
           ['gate_token', board.gate.tokenAddress],
           ['gate_chain', VARIANT_TO_EIP155[board.gate.chain]],
         ],
-        opts,
+        { ...opts, maxRows: SCAN_ROWS },
       ),
     ),
   )
@@ -166,7 +222,7 @@ export async function loadRoots(store: EntityStore, board: BoardRef, opts: { pay
 }
 
 export async function loadReplies(store: EntityStore, board: BoardRef, opts: { payload?: boolean } = {}): Promise<PostRecord[]> {
-  const rows = await queryAll(store, [['grp', GRP_POST], ['board', board.slug]], opts)
+  const rows = await queryAll(store, [['grp', GRP_POST], ['board', board.slug]], { ...opts, maxRows: SCAN_ROWS })
   const out: PostRecord[] = []
   for (const r of rows) {
     const rec = parseEntity(r, { board })
@@ -193,6 +249,7 @@ export async function loadIndex(store: EntityStore, board: ResolvedBoard, curren
     folded,
     threads: new Map(roots.map((t) => [t.key, t])),
     posts: new Map(replies.map((p) => [p.key, p])),
+    ...(roots.length >= SCAN_ROWS || replies.length >= SCAN_ROWS ? { truncated: true } : {}),
     ...(currentBlock !== undefined ? { currentBlock } : {}),
   }
 }
@@ -221,17 +278,34 @@ export function indexPage(index: BoardIndex, page: number, tailN: number = INDEX
   return pageItems(index.folded, index.threads, index.posts, index.board.pageSize, page, tailN)
 }
 
-/** Fetch payloads for the OPs on a page (index rows are attributes-only). */
+/** Fetch payloads for the OPs on a page (index rows are attributes-only). One batched `$key` query per `HYDRATE_CHUNK` keys, never one `getEntity` per row. */
 export async function hydrateThreads(store: EntityStore, threads: ThreadRecord[], board: BoardRef): Promise<ThreadRecord[]> {
-  return Promise.all(
-    threads.map(async (t) => {
-      if (t.payload) return t
-      const raw = await store.get(t.key, { payload: true })
-      if (!raw) return t
-      const rec = parseEntity(raw, { board })
-      return rec?.kind === 'thread' ? rec : t
-    }),
-  )
+  const missing = threads.filter((t) => !t.payload)
+  if (missing.length === 0) return threads
+  const rows = await getManyChunked(store, missing.map((t) => t.key), true)
+  const byKey = new Map(rows.map((r) => [r.key.toLowerCase(), r]))
+  return threads.map((t) => {
+    if (t.payload) return t
+    const raw = byKey.get(t.key.toLowerCase())
+    if (!raw) return t
+    const rec = parseEntity(raw, { board })
+    return rec?.kind === 'thread' ? rec : t
+  })
+}
+
+/** Fetch payloads for tail posts on a page, batched like `hydrateThreads`. */
+export async function hydratePosts(store: EntityStore, posts: PostRecord[], board: BoardRef): Promise<PostRecord[]> {
+  const missing = posts.filter((p) => !p.payload)
+  if (missing.length === 0) return posts
+  const rows = await getManyChunked(store, missing.map((p) => p.key), true)
+  const byKey = new Map(rows.map((r) => [r.key.toLowerCase(), r]))
+  return posts.map((p) => {
+    if (p.payload) return p
+    const raw = byKey.get(p.key.toLowerCase())
+    if (!raw) return p
+    const rec = parseEntity(raw, { board })
+    return rec?.kind === 'post' ? rec : p
+  })
 }
 
 // ── Thread ──────────────────────────────────────────────────────────────
@@ -276,6 +350,8 @@ export interface GlobalIndex {
   /** Effective board for each gate seen (definition or defaults), keyed by `gateKey`. */
   boards: Map<string, ResolvedBoard>
   pageSize: number
+  /** True when a scan hit `SCAN_ROWS` and older rows were not read. */
+  truncated?: boolean
   currentBlock?: number
 }
 
@@ -310,11 +386,14 @@ export async function loadGlobalIndex(store: EntityStore, opts: GlobalIndexOptio
     return b
   }
 
+  // Bounded scan: 1 charged call per group (SCAN_ROWS), O(page) not O(network).
+  // Older rows beyond the cap are not folded; `truncated` surfaces that in UI.
   const [ownRows, postRows, ...havenRows] = await Promise.all([
-    queryAll(store, [['grp', GRP_THREAD]]),
-    queryAll(store, [['grp', GRP_POST]]),
-    ...HAVEN_FULL_GROUPS.map((g) => queryAll(store, [['grp', g]])),
+    queryAll(store, [['grp', GRP_THREAD]], { maxRows: SCAN_ROWS }),
+    queryAll(store, [['grp', GRP_POST]], { maxRows: SCAN_ROWS }),
+    ...HAVEN_FULL_GROUPS.map((g) => queryAll(store, [['grp', g]], { maxRows: SCAN_ROWS })),
   ])
+  const truncated = ownRows.length >= SCAN_ROWS || postRows.length >= SCAN_ROWS || havenRows.some((r) => r.length >= SCAN_ROWS)
 
   const threads = new Map<string, ThreadRecord>()
   for (const r of ownRows) {
@@ -351,6 +430,7 @@ export async function loadGlobalIndex(store: EntityStore, opts: GlobalIndexOptio
     posts: new Map(livePosts.map((p) => [p.key, p])),
     boards,
     pageSize: opts.pageSize ?? DEFAULT_PAGE_SIZE,
+    ...(truncated ? { truncated: true } : {}),
     ...(opts.currentBlock !== undefined ? { currentBlock: opts.currentBlock } : {}),
   }
 }

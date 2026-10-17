@@ -1,19 +1,19 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAccount, useWalletClient } from 'wagmi'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   boardOf,
   currentEpoch,
   globalPage,
+  hydratePosts,
   hydrateThreads,
   indexPage,
   loadBoards,
   loadGlobalIndex,
   loadIndex,
   loadThread,
-  parseEntity,
   resolveBoard,
   type BoardGate,
   type IndexPageItem,
@@ -26,8 +26,27 @@ import { membership } from '@/lib/evm'
 import { hasUnlocked, openSealedText, parseGateJson, unlock, type WalletClientLike } from '@/lib/aol'
 import { useSession } from '@/store/session'
 
-const INDEX_POLL_MS = 6000
-const THREAD_POLL_MS = 3000
+/**
+ * Idle freshness without charged polling: `arkiv_getEntityCount` is a
+ * free call (cost 0). Probe it once a minute; only when the count moves
+ * do the charged index/thread/global queries refetch. An idle tab thus
+ * costs 0 charged calls/min, and a busy one at most one reload/min.
+ */
+const PROBE_MS = 60_000
+
+export function useChangeProbe(prefixes: string[]) {
+  const qc = useQueryClient()
+  const probe = useQuery({ queryKey: ['entity-count'], queryFn: () => arkivStore.entityCount(), refetchInterval: PROBE_MS, staleTime: PROBE_MS })
+  const seen = useRef<number | undefined>(undefined)
+  const prefixesKey = prefixes.join(',')
+  useEffect(() => {
+    if (probe.data === undefined) return
+    if (seen.current !== undefined && seen.current !== probe.data) {
+      for (const p of prefixesKey.split(',')) void qc.invalidateQueries({ queryKey: [p] })
+    }
+    seen.current = probe.data
+  }, [probe.data, qc, prefixesKey])
+}
 
 export function useBoards() {
   return useQuery({ queryKey: ['boards'], queryFn: () => loadBoards(arkivStore), staleTime: 30_000 })
@@ -43,21 +62,24 @@ export function useResolvedBoard(slugOrGate: string | null) {
 }
 
 export function useCurrentBlock() {
-  return useQuery({ queryKey: ['block'], queryFn: () => arkivStore.currentBlock(), refetchInterval: 10_000 })
+  return useQuery({ queryKey: ['block'], queryFn: () => arkivStore.currentBlock(), refetchInterval: 60_000 })
 }
 
 /** Index with membership filtering and OP payload hydration for the current page. */
 export function useIndex(board: ResolvedBoard | null | undefined, page: number) {
   const block = useCurrentBlock()
+  useChangeProbe(['index', 'index-page'])
   const q = useQuery({
-    queryKey: ['index', board?.ref.slug, board?.ref.gate.tokenAddress, block.data ?? null],
+    // Block height is deliberately NOT in the key: blocks are 2s, so a
+    // block-keyed query re-ran the whole loader 30x/min (paste E3).
+    queryKey: ['index', board?.ref.slug, board?.ref.gate.tokenAddress],
     queryFn: async () => {
       if (!board) return null
       const idx = await loadIndex(arkivStore, board, block.data ?? undefined)
       return idx
     },
     enabled: !!board,
-    refetchInterval: INDEX_POLL_MS,
+    staleTime: 30_000,
   })
   const pageQ = useQuery({
     queryKey: ['index-page', board?.ref.slug, page, q.data?.folded.map((f) => `${f.key}:${f.bumpKey}`).join(',') ?? ''],
@@ -71,22 +93,12 @@ export function useIndex(board: ResolvedBoard | null | undefined, page: number) 
       const items: IndexPageItem[] = pg.items.filter((i) => member.get(i.thread.owner)).map((i) => ({ ...i, tail: i.tail.filter((t) => member.get(t.owner)) }))
       const hydrated = await hydrateThreads(arkivStore, items.map((i) => i.thread), board.ref)
       const withPayload = items.map((i, n) => ({ ...i, thread: hydrated[n] ?? i.thread }))
-      // Replies on the index need payloads too (tail is at most 3 per thread).
-      const tails = await Promise.all(
-        withPayload.map(async (i) => ({
-          ...i,
-          tail: await Promise.all(
-            i.tail.map(async (t) => {
-              if (t.payload) return t
-              const raw = await arkivStore.get(t.key)
-              if (!raw) return t
-              const rec = parseEntity(raw, { board: board.ref })
-              return rec?.kind === 'post' ? rec : t
-            }),
-          ),
-        })),
-      )
-      return { items: tails, page: pg.page, pages: pg.pages, total: q.data.folded.length }
+      // Replies need payloads too: one batched $key query for the whole page.
+      const flatTail = withPayload.flatMap((i) => i.tail)
+      const hydratedTail = await hydratePosts(arkivStore, flatTail, board.ref)
+      const tailByKey = new Map(hydratedTail.map((t) => [t.key, t]))
+      const tails = withPayload.map((i) => ({ ...i, tail: i.tail.map((t) => tailByKey.get(t.key) ?? t) }))
+      return { items: tails, page: pg.page, pages: pg.pages, total: q.data.folded.length, ...(q.data.truncated ? { truncated: true } : {}) }
     },
     enabled: !!board && !!q.data,
   })
@@ -95,15 +107,14 @@ export function useIndex(board: ResolvedBoard | null | undefined, page: number) 
 
 // ── Global feed ─────────────────────────────────────────────────────────
 
-const GLOBAL_POLL_MS = 8000
-
 /** Every gate at once. Membership is checked per thread against that thread's gate. */
 export function useGlobalFeed(page: number) {
   const block = useCurrentBlock()
+  useChangeProbe(['global', 'global-page'])
   const q = useQuery({
-    queryKey: ['global', block.data ?? null],
+    queryKey: ['global'],
     queryFn: () => loadGlobalIndex(arkivStore, { ...(block.data !== undefined ? { currentBlock: block.data } : {}) }),
-    refetchInterval: GLOBAL_POLL_MS,
+    staleTime: 30_000,
   })
   const pageQ = useQuery({
     queryKey: ['global-page', page, q.data?.folded.map((f) => `${f.key}:${f.bumpKey}`).join(',') ?? ''],
@@ -126,23 +137,24 @@ export function useGlobalFeed(page: number) {
         if (!m.get(i.thread.owner)) continue
         items.push({ ...i, tail: i.tail.filter((t) => m.get(t.owner)) })
       }
-      const hydrated = await Promise.all(
-        items.map(async (i) => {
-          const board = boardOf(q.data!, i.thread)
-          const [thread] = await hydrateThreads(arkivStore, [i.thread], board.ref)
-          const tail = await Promise.all(
-            i.tail.map(async (t) => {
-              if (t.payload) return t
-              const raw = await arkivStore.get(t.key)
-              if (!raw) return t
-              const rec = parseEntity(raw, { board: board.ref })
-              return rec?.kind === 'post' ? rec : t
-            }),
-          )
-          return { ...i, thread: thread ?? i.thread, tail }
+      // Batched hydration grouped by board: one $key query per chunk for all OPs, one for all tails.
+      const byBoard = new Map<string, { board: ReturnType<typeof boardOf>; items: IndexPageItem[] }>()
+      for (const i of items) {
+        const board = boardOf(q.data!, i.thread)
+        const g = byBoard.get(board.ref.slug) ?? { board, items: [] }
+        g.items.push(i)
+        byBoard.set(board.ref.slug, g)
+      }
+      const threadByKey = new Map<string, IndexPageItem['thread']>()
+      const tailByKey = new Map<string, IndexPageItem['tail'][number]>()
+      await Promise.all(
+        [...byBoard.values()].map(async ({ board, items: group }) => {
+          for (const t of await hydrateThreads(arkivStore, group.map((i) => i.thread), board.ref)) threadByKey.set(t.key, t)
+          for (const t of await hydratePosts(arkivStore, group.flatMap((i) => i.tail), board.ref)) tailByKey.set(t.key, t)
         }),
       )
-      return { items: hydrated, page: pg.page, pages: pg.pages, total: q.data.folded.length }
+      const hydrated = items.map((i) => ({ ...i, thread: threadByKey.get(i.thread.key) ?? i.thread, tail: i.tail.map((t) => tailByKey.get(t.key) ?? t) }))
+      return { items: hydrated, page: pg.page, pages: pg.pages, total: q.data.folded.length, ...(q.data.truncated ? { truncated: true } : {}) }
     },
     enabled: !!q.data,
   })
@@ -151,8 +163,9 @@ export function useGlobalFeed(page: number) {
 
 export function useThread(board: ResolvedBoard | null | undefined, rootKey: string | null) {
   const block = useCurrentBlock()
+  useChangeProbe(['thread'])
   return useQuery({
-    queryKey: ['thread', board?.ref.slug, rootKey, block.data ?? null],
+    queryKey: ['thread', board?.ref.slug, rootKey],
     queryFn: async () => {
       if (!board || !rootKey) return null
       const t = await loadThread(arkivStore, board, rootKey, block.data ?? undefined)
@@ -165,7 +178,7 @@ export function useThread(board: ResolvedBoard | null | undefined, rootKey: stri
       return { ...t, rootHidden: false as const, replies: t.replies.filter((r) => member.get(r.owner)) }
     },
     enabled: !!board && !!rootKey,
-    refetchInterval: THREAD_POLL_MS,
+    staleTime: 30_000,
   })
 }
 
