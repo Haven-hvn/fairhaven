@@ -1,0 +1,98 @@
+name: deploy
+
+# Pin the static export to IPFS via PinMe on every push to main, as haven-dapp
+# does. There is no server: `out/` is the whole application.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pinme:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check PinMe AppKey
+        env:
+          PINME_APPKEY: ${{ secrets.PINME_APPKEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PINME_APPKEY:-}" ]; then
+            echo "PINME_APPKEY secret is not set."
+            echo "  npm install -g pinme && pinme login && pinme show-appkey"
+            echo "  then add it at https://github.com/${{ github.repository }}/settings/secrets/actions"
+            exit 1
+          fi
+          echo "PINME_APPKEY present"
+
+      - name: Checkout Haven-AOL SDK
+        run: git clone --depth 1 https://github.com/Haven-hvn/haven-aol.git apps/web/haven-aol
+
+      - name: Enable pnpm via corepack
+        run: |
+          set -euo pipefail
+          corepack enable
+          corepack prepare pnpm@11 --activate
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Haven-AOL SDK
+        working-directory: apps/web/haven-aol/packages/typescript
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          npm run build --if-present
+
+      - name: Build board-core
+        run: pnpm --filter @fairhaven/board-core run build
+
+      - name: Build web
+        working-directory: apps/web
+        env:
+          NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID }}
+          NEXT_PUBLIC_APP_URL: ${{ vars.NEXT_PUBLIC_APP_URL || 'https://fairhaven.pinme.eth.limo/' }}
+          NEXT_PUBLIC_ARKIV_RPC_URL: ${{ vars.NEXT_PUBLIC_ARKIV_RPC_URL || 'https://rpc.tiramisu.db-chain.testnet.arkiv.network' }}
+          NEXT_PUBLIC_HAVEN_AOL_CANISTER_ID: ${{ vars.NEXT_PUBLIC_HAVEN_AOL_CANISTER_ID || 'gny6k-fqaaa-aaaab-ag3ra-cai' }}
+          NEXT_PUBLIC_EIP712_CHAIN_ID: ${{ vars.NEXT_PUBLIC_EIP712_CHAIN_ID || '1' }}
+          NEXT_PUBLIC_EIP712_VERIFYING_CONTRACT: ${{ vars.NEXT_PUBLIC_EIP712_VERIFYING_CONTRACT || '0x0000000000000000000000000000000000000000' }}
+          NEXT_PUBLIC_RPC_1: ${{ vars.NEXT_PUBLIC_RPC_1 }}
+          NEXT_PUBLIC_RPC_8453: ${{ vars.NEXT_PUBLIC_RPC_8453 }}
+          NEXT_PUBLIC_RPC_10: ${{ vars.NEXT_PUBLIC_RPC_10 }}
+          NEXT_PUBLIC_RPC_42161: ${{ vars.NEXT_PUBLIC_RPC_42161 }}
+          NEXT_PUBLIC_RPC_11155111: ${{ vars.NEXT_PUBLIC_RPC_11155111 }}
+          NEXT_PUBLIC_HAVEN_DAPP_URL: ${{ vars.NEXT_PUBLIC_HAVEN_DAPP_URL || 'https://haven.video' }}
+        run: pnpm run build
+
+      - name: Verify static export
+        working-directory: apps/web
+        run: |
+          set -euo pipefail
+          test -d out && test -f out/index.html
+          ls -la out | head -30
+
+      - name: Authenticate PinMe
+        env:
+          PINME_APPKEY: ${{ secrets.PINME_APPKEY }}
+        run: |
+          set -euo pipefail
+          npx pinme@2.0.12 --version
+          npx pinme@2.0.12 set-appkey "$PINME_APPKEY"
+
+      - name: Deploy to PinMe (IPFS)
+        working-directory: apps/web
+        env:
+          PINME_DOMAIN: ${{ vars.PINME_DOMAIN || secrets.PINME_DOMAIN }}
+        run: |
+          set -euo pipefail
+          if [ -n "${PINME_DOMAIN:-}" ]; then
+            npx pinme@2.0.12 upload ./out --domain "$PINME_DOMAIN"
+          else
+            npx pinme@2.0.12 upload ./out
+          fi
+          npx pinme@2.0.12 list -l 3 || true

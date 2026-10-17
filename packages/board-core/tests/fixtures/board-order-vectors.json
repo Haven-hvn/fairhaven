@@ -1,0 +1,109 @@
+{
+  "$schema": "fairhaven board-order-vectors v1",
+  "description": "Every Fairhaven client must produce `expected` (ordered root keys) from `threads` + `posts` under `params`. createdAt is an Arkiv block height. Keys are abbreviated 0x hex for readability; implementations compare lowercase strings.",
+  "vectors": [
+    {
+      "name": "new threads enter at the top; no replies",
+      "params": { "bumpLimit": 300, "capacity": 150 },
+      "threads": [
+        { "key": "0xaa", "createdAt": 100 },
+        { "key": "0xbb", "createdAt": 105 },
+        { "key": "0xcc", "createdAt": 102 }
+      ],
+      "posts": [],
+      "expected": ["0xbb", "0xcc", "0xaa"]
+    },
+    {
+      "name": "a reply bumps its thread above newer threads",
+      "params": { "bumpLimit": 300, "capacity": 150 },
+      "threads": [
+        { "key": "0xaa", "createdAt": 100 },
+        { "key": "0xbb", "createdAt": 105 }
+      ],
+      "posts": [
+        { "key": "0x01", "rootRef": "0xaa", "noBump": false, "createdAt": 110 }
+      ],
+      "expected": ["0xaa", "0xbb"]
+    },
+    {
+      "name": "no_bump reply does not reorder",
+      "params": { "bumpLimit": 300, "capacity": 150 },
+      "threads": [
+        { "key": "0xaa", "createdAt": 100 },
+        { "key": "0xbb", "createdAt": 105 }
+      ],
+      "posts": [
+        { "key": "0x01", "rootRef": "0xaa", "noBump": true, "createdAt": 110 }
+      ],
+      "expected": ["0xbb", "0xaa"]
+    },
+    {
+      "name": "replies past the bump limit do not reorder",
+      "params": { "bumpLimit": 2, "capacity": 150 },
+      "threads": [
+        { "key": "0xaa", "createdAt": 100 },
+        { "key": "0xbb", "createdAt": 101 }
+      ],
+      "posts": [
+        { "key": "0x01", "rootRef": "0xaa", "noBump": false, "createdAt": 102 },
+        { "key": "0x02", "rootRef": "0xaa", "noBump": false, "createdAt": 103 },
+        { "key": "0x03", "rootRef": "0xbb", "noBump": false, "createdAt": 104 },
+        { "key": "0x04", "rootRef": "0xaa", "noBump": false, "createdAt": 105 }
+      ],
+      "expected": ["0xbb", "0xaa"]
+    },
+    {
+      "name": "same-block ties break on key, ascending for events so the higher key bumps last",
+      "params": { "bumpLimit": 300, "capacity": 150 },
+      "threads": [
+        { "key": "0xaa", "createdAt": 100 },
+        { "key": "0xbb", "createdAt": 100 }
+      ],
+      "posts": [
+        { "key": "0x02", "rootRef": "0xaa", "noBump": false, "createdAt": 120 },
+        { "key": "0x01", "rootRef": "0xbb", "noBump": false, "createdAt": 120 }
+      ],
+      "expected": ["0xaa", "0xbb"]
+    },
+    {
+      "name": "capacity prunes least-recently-bumped threads",
+      "params": { "bumpLimit": 300, "capacity": 2 },
+      "threads": [
+        { "key": "0xaa", "createdAt": 100 },
+        { "key": "0xbb", "createdAt": 101 },
+        { "key": "0xcc", "createdAt": 102 }
+      ],
+      "posts": [
+        { "key": "0x01", "rootRef": "0xaa", "noBump": false, "createdAt": 200 }
+      ],
+      "expected": ["0xaa", "0xcc"]
+    },
+    {
+      "name": "replies to unknown roots and duplicate reply keys are ignored",
+      "params": { "bumpLimit": 300, "capacity": 150 },
+      "threads": [
+        { "key": "0xaa", "createdAt": 100 },
+        { "key": "0xbb", "createdAt": 105 }
+      ],
+      "posts": [
+        { "key": "0x01", "rootRef": "0xzz", "noBump": false, "createdAt": 300 },
+        { "key": "0x02", "rootRef": "0xaa", "noBump": false, "createdAt": 110 },
+        { "key": "0x02", "rootRef": "0xaa", "noBump": false, "createdAt": 110 }
+      ],
+      "expected": ["0xaa", "0xbb"]
+    },
+    {
+      "name": "input order is irrelevant",
+      "params": { "bumpLimit": 300, "capacity": 150 },
+      "threads": [
+        { "key": "0xbb", "createdAt": 105 },
+        { "key": "0xaa", "createdAt": 100 }
+      ],
+      "posts": [
+        { "key": "0x02", "rootRef": "0xbb", "noBump": false, "createdAt": 130 },
+        { "key": "0x01", "rootRef": "0xaa", "noBump": false, "createdAt": 140 }
+      ],
+      "expected": ["0xaa", "0xbb"]
+    }
+  ]
+}

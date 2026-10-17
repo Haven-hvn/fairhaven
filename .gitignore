@@ -1,0 +1,10 @@
+node_modules/
+lib/
+dist/
+.next/
+out/
+*.log
+.env
+.env.local
+.DS_Store
+apps/web/haven-aol/

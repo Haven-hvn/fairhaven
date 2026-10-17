@@ -1,0 +1,21 @@
+{
+  "name": "fairhaven-workspace",
+  "private": true,
+  "type": "module",
+  "description": "Fairhaven: a gated, pseudonymous, ephemeral message board on the Haven protocol stack (Arkiv + Haven-AOL + Filecoin + any EVM gate).",
+  "license": "MIT",
+  "scripts": {
+    "build": "pnpm -r --filter './packages/*' run build",
+    "typecheck": "pnpm -r --if-present run typecheck",
+    "test": "vitest run",
+    "web:dev": "pnpm --filter fairhaven-web dev",
+    "web:build": "pnpm --filter fairhaven-web build"
+  },
+  "packageManager": "pnpm@11.0.0",
+  "devDependencies": {
+    "@types/node": "=26.6.3",
+    "tsdown": "=0.23.0",
+    "typescript": "=7.0.2",
+    "vitest": "=5.0.2"
+  }
+}

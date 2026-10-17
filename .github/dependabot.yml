@@ -1,0 +1,20 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      dev:
+        dependency-type: development
+    ignore:
+      # Exact pins shared with the dsh web3 stack; bump deliberately, together.
+      - dependency-name: '@deepseek-ai/*'
+      - dependency-name: '@arkiv-network/sdk'
+      - dependency-name: '@icp-sdk/*'
+      - dependency-name: '@filoz/*'
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

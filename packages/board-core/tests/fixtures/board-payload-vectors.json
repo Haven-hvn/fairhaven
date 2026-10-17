@@ -1,0 +1,118 @@
+{
+  "$schema": "fairhaven board-payload-vectors v1",
+  "description": "Attribute records every writer must emit for the given inputs (bare values: string→str, int→i32). Payload JSON is compared structurally. sha256Ct values are placeholders (64 hex) — the codec does not verify them, the reader does.",
+  "gate": { "chain": "BaseMainnet", "tokenAddress": "0xAbCdEf0123456789abcdef0123456789ABCDEF01", "threshold": "1" },
+  "vectors": [
+    {
+      "name": "thread, clear text, no media",
+      "kind": "thread",
+      "input": {
+        "board": "conference.backchannel",
+        "subject": "launch logistics",
+        "payload": { "v": 1, "text": { "clear": "doors open at 9" } },
+        "sha256Ct": "0000000000000000000000000000000000000000000000000000000000000001"
+      },
+      "attributes": {
+        "grp": "haven.board.thread",
+        "board": "conference.backchannel",
+        "subject": "launch logistics",
+        "gate_type": 3,
+        "gate_token": "0xabcdef0123456789abcdef0123456789abcdef01",
+        "gate_chain": 8453,
+        "gate_threshold": 1,
+        "mime": 0,
+        "sealed": 0,
+        "sha256_ct": "0000000000000000000000000000000000000000000000000000000000000001"
+      },
+      "expiresIn": 1209600
+    },
+    {
+      "name": "thread, clear text, sealed pdf",
+      "kind": "thread",
+      "input": {
+        "board": "conference.backchannel",
+        "subject": "the deck",
+        "payload": {
+          "v": 1,
+          "gate": "{\"version\":3,\"cid\":\"sha256:0000000000000000000000000000000000000000000000000000000000000002\",\"chain\":\"BaseMainnet\",\"tokenAddress\":\"0xabcdef0123456789abcdef0123456789abcdef01\",\"threshold\":\"1\",\"epoch\":741,\"encryptedAesKey\":\"QUJD\"}",
+          "text": { "clear": "slides from the 2pm talk" },
+          "media": { "piece": "bafkzcibexample", "mime": 14, "size": 12345, "name": "deck.pdf" }
+        },
+        "sha256Ct": "0000000000000000000000000000000000000000000000000000000000000002"
+      },
+      "attributes": {
+        "grp": "haven.board.thread",
+        "board": "conference.backchannel",
+        "subject": "the deck",
+        "gate_type": 3,
+        "gate_token": "0xabcdef0123456789abcdef0123456789abcdef01",
+        "gate_chain": 8453,
+        "gate_threshold": 1,
+        "mime": 14,
+        "sealed": 2,
+        "sha256_ct": "0000000000000000000000000000000000000000000000000000000000000002"
+      },
+      "expiresIn": 1209600
+    },
+    {
+      "name": "reply, sealed text, no bump, with parent",
+      "kind": "post",
+      "input": {
+        "board": "conference.backchannel",
+        "rootRef": "0x1111111111111111111111111111111111111111111111111111111111111111",
+        "parentRef": "0x2222222222222222222222222222222222222222222222222222222222222222",
+        "noBump": true,
+        "payload": {
+          "v": 1,
+          "gate": "{\"version\":3,\"cid\":\"sha256:0000000000000000000000000000000000000000000000000000000000000003\",\"chain\":\"BaseMainnet\",\"tokenAddress\":\"0xabcdef0123456789abcdef0123456789abcdef01\",\"threshold\":\"1\",\"epoch\":741,\"encryptedAesKey\":\"QUJD\"}",
+          "text": { "sealed": "AAECAwQFBgcICQoLDA==" }
+        },
+        "sha256Ct": "0000000000000000000000000000000000000000000000000000000000000003",
+        "expiresIn": 3600
+      },
+      "attributes": {
+        "grp": "haven.board.post",
+        "board": "conference.backchannel",
+        "root_ref": "0x1111111111111111111111111111111111111111111111111111111111111111",
+        "parent_ref": "0x2222222222222222222222222222222222222222222222222222222222222222",
+        "no_bump": 1,
+        "gate_type": 3,
+        "gate_token": "0xabcdef0123456789abcdef0123456789abcdef01",
+        "gate_chain": 8453,
+        "gate_threshold": 1,
+        "sealed": 1,
+        "sha256_ct": "0000000000000000000000000000000000000000000000000000000000000003"
+      },
+      "expiresIn": 3600
+    },
+    {
+      "name": "board definition",
+      "kind": "def",
+      "input": {
+        "board": "conference.backchannel",
+        "title": "Conference backchannel",
+        "about": "Unfiltered takes. Dies after the event.",
+        "bumpLimit": 200,
+        "capacity": 60,
+        "pageSize": 15,
+        "defaults": { "sealText": true, "sealMedia": true },
+        "ttl": { "thread_s": 259200, "post_s": 86400 },
+        "expiresIn": 604800
+      },
+      "attributes": {
+        "grp": "haven.board.def",
+        "board": "conference.backchannel",
+        "title": "Conference backchannel",
+        "gate_type": 3,
+        "gate_token": "0xabcdef0123456789abcdef0123456789abcdef01",
+        "gate_chain": 8453,
+        "gate_threshold": 1,
+        "bump_limit": 200,
+        "capacity": 60,
+        "page_size": 15
+      },
+      "payload": { "v": 1, "about": "Unfiltered takes. Dies after the event.", "defaults": { "sealText": true, "sealMedia": true }, "ttl": { "thread_s": 259200, "post_s": 86400 } },
+      "expiresIn": 604800
+    }
+  ]
+}

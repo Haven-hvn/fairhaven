@@ -1,0 +1,496 @@
+/* Fairhaven — dense, square, utilitarian. See docs/UI.md. */
+
+:root,
+[data-theme='daybreak'] {
+  --bg: #eef2ff;
+  --bar: #d6daf0;
+  --border: #b7c5d9;
+  --subject: #0f0c5d;
+  --name: #0d5c33;
+  --time: #555555;
+  --postid: #800000;
+  --body: #000000;
+  --link: #3473c3;
+  --link-visited: #0f0c5d;
+  --green: #4a6610;
+  --backlink: #dd0000;
+  --frost-stripe: #c9cfe8;
+  --frost-veil: rgba(255, 255, 255, 0.55);
+  --input-bg: #ffffff;
+}
+
+[data-theme='parchment'] {
+  --bg: #ffffee;
+  --bar: #f0e0d6;
+  --border: #d9bfa7;
+  --subject: #800000;
+  --name: #0d5c33;
+  --time: #555555;
+  --postid: #800000;
+  --body: #000000;
+  --link: #800000;
+  --link-visited: #660000;
+  --green: #4a6610;
+  --backlink: #dd0000;
+  --frost-stripe: #e6d2c4;
+  --frost-veil: rgba(255, 255, 255, 0.55);
+  --input-bg: #ffffff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--body);
+  font: 13px/1.25 Arial, Helvetica, sans-serif;
+}
+
+a {
+  color: var(--link);
+  text-decoration: underline;
+}
+a:visited {
+  color: var(--link-visited);
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--input-bg);
+  color: var(--body);
+  padding: 3px 5px;
+}
+button {
+  cursor: pointer;
+  background: var(--bar);
+  min-height: 24px;
+}
+button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.container {
+  width: 75%;
+  margin: 0 auto;
+  padding: 4px 0 24px;
+}
+@media (max-width: 768px) {
+  .container {
+    width: 100%;
+    padding: 4px 6px 24px;
+  }
+  button,
+  .quote,
+  .reply-link {
+    min-height: 32px;
+    line-height: 32px;
+  }
+}
+
+/* Navbar */
+.nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 8px;
+  padding: 3px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.nav .spacer {
+  flex: 1;
+}
+.nav button {
+  padding: 1px 5px;
+  min-height: 0;
+}
+
+/* Gate card */
+.gate {
+  margin: 8px 0;
+  padding: 6px 8px;
+  background: var(--bar);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.gate img {
+  width: 32px;
+  height: 32px;
+  object-fit: cover;
+  border: 1px solid var(--border);
+}
+.gate .copy {
+  flex: 1;
+  min-width: 200px;
+}
+.gate .copy small {
+  display: block;
+  color: var(--time);
+}
+.gate .error {
+  color: var(--backlink);
+}
+
+/* Post form */
+.form {
+  margin: 8px auto;
+  border-collapse: collapse;
+}
+.form td {
+  padding: 1px 2px;
+  vertical-align: top;
+}
+.form td:first-child {
+  background: var(--bar);
+  border: 1px solid var(--border);
+  font-weight: bold;
+  padding: 2px 6px;
+  white-space: nowrap;
+}
+.form input[type='text'],
+.form textarea {
+  width: 320px;
+  max-width: 100%;
+}
+.form textarea {
+  height: 90px;
+}
+.form .lock {
+  font-weight: normal;
+  margin-left: 6px;
+}
+.exposure {
+  color: var(--time);
+  font-size: 11px;
+}
+.exposure b {
+  color: var(--body);
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 6px 0;
+}
+
+/* Threads */
+.thread {
+  margin: 0 0 6px;
+  clear: both;
+}
+.op {
+  overflow: hidden;
+}
+.op .file {
+  float: left;
+  margin: 2px 16px 4px 0;
+}
+.meta {
+  margin: 2px 0;
+}
+.subject {
+  color: var(--subject);
+  font-weight: bold;
+}
+.name {
+  color: var(--name);
+  font-weight: bold;
+}
+.time {
+  color: var(--time);
+  font-size: 12px;
+}
+.postid {
+  color: var(--postid);
+  font-weight: bold;
+}
+.postid a {
+  color: inherit;
+  text-decoration: none;
+}
+.body {
+  margin: 4px 0 4px 2px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.body .green {
+  color: var(--green);
+}
+.quote {
+  color: var(--backlink);
+}
+.quote.dead {
+  color: var(--time);
+  text-decoration: line-through;
+}
+.backlinks {
+  font-size: 11px;
+  margin: 0 0 0 2px;
+}
+.backlinks a {
+  color: var(--backlink);
+  margin-right: 4px;
+}
+.omitted {
+  color: var(--time);
+  font-size: 12px;
+  margin: 2px 0 2px 2px;
+}
+.omitted button {
+  padding: 0 3px;
+  min-height: 0;
+}
+
+.reply {
+  display: inline-block;
+  background: var(--bar);
+  border: 1px solid var(--border);
+  padding: 2px 6px 4px;
+  margin: 2px 0 2px 16px;
+  max-width: calc(100% - 16px);
+}
+.reply.you,
+.op.you .meta .name::after {
+  content: '';
+}
+.you-tag {
+  color: var(--time);
+  font-size: 11px;
+}
+.reply.pending {
+  opacity: 0.6;
+}
+
+/* Frost: the only non-flat element */
+.frost {
+  position: relative;
+  background: repeating-linear-gradient(0deg, var(--frost-stripe) 0 7px, var(--bg) 7px 11px);
+  min-height: 11px;
+  overflow: hidden;
+}
+.frost::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--frost-veil);
+  backdrop-filter: blur(1.5px);
+}
+.frost.text {
+  width: 100%;
+}
+.frost.shimmer::after {
+  animation: shimmer 1.4s linear infinite;
+  background: linear-gradient(90deg, var(--frost-veil), rgba(255, 255, 255, 0.85), var(--frost-veil));
+  background-size: 200% 100%;
+}
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+.frost .lock {
+  position: absolute;
+  right: 3px;
+  bottom: 1px;
+  font-size: 11px;
+  color: var(--time);
+  z-index: 1;
+}
+.frost-caption {
+  font-size: 11px;
+  color: var(--time);
+  margin: 1px 0 3px 2px;
+}
+.frost-caption a {
+  color: var(--link);
+}
+
+/* Media */
+.tile {
+  width: 125px;
+  height: 125px;
+  border: 1px solid var(--border);
+  background: var(--bar);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--time);
+  font-size: 11px;
+  overflow: hidden;
+}
+.tile img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: blur(6px);
+  transform: scale(1.1);
+}
+.tile.mark {
+  color: var(--subject);
+  background: var(--bar);
+}
+.file-info {
+  font-size: 11px;
+  color: var(--time);
+  margin: 0 0 2px 2px;
+}
+.file-info a {
+  color: var(--link);
+}
+.media-open img,
+.media-open video {
+  max-width: 100%;
+  max-height: 70vh;
+  display: block;
+}
+.media-open img.thumb {
+  max-width: 250px;
+  max-height: 250px;
+  cursor: pointer;
+}
+img.thumb,
+video.thumb {
+  max-width: 250px;
+  max-height: 250px;
+  display: block;
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+video.thumb {
+  cursor: default;
+  background: #000;
+}
+.tile.ready {
+  cursor: pointer;
+  color: var(--subject);
+}
+.media-open iframe {
+  width: 100%;
+  height: 70vh;
+  border: 1px solid var(--border);
+}
+.media-open pre {
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  padding: 4px;
+  max-height: 60vh;
+  overflow: auto;
+}
+
+/* Comic reader */
+.comic-bar {
+  font-size: 12px;
+  padding: 2px 0;
+  border-bottom: 1px solid var(--border);
+}
+.comic-stage {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 0;
+  background: var(--bar);
+  border: 1px solid var(--border);
+  border-top: 0;
+  user-select: none;
+}
+.comic-stage.fit-height img {
+  max-height: 88vh;
+  max-width: 50%;
+}
+.comic-stage.fit-height img:only-of-type {
+  max-width: 100%;
+}
+.comic-stage.fit-width img {
+  width: 100%;
+  max-width: 100%;
+}
+.comic-stage img {
+  display: block;
+  height: auto;
+}
+.comic-zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 30%;
+  cursor: pointer;
+}
+.comic-zone.left {
+  left: 0;
+}
+.comic-zone.right {
+  right: 0;
+}
+
+/* Catalog */
+.catalog {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 150px);
+  gap: 8px;
+  justify-content: center;
+}
+.catalog .card {
+  width: 150px;
+  text-align: center;
+  font-size: 11px;
+}
+.catalog .card .tile {
+  margin: 0 auto 2px;
+}
+.catalog .card .subject {
+  display: block;
+}
+
+/* Pager */
+.pager {
+  display: inline-block;
+  border: 1px solid var(--border);
+  background: var(--bar);
+  padding: 2px 6px;
+  margin: 6px 0;
+}
+.pager a,
+.pager b {
+  margin: 0 3px;
+}
+
+.notice {
+  text-align: center;
+  margin: 40px 0;
+  color: var(--time);
+}
+.notice h1 {
+  color: var(--subject);
+  font-size: 16px;
+}
+
+.error {
+  color: var(--backlink);
+}
+.muted {
+  color: var(--time);
+}
+.boards td {
+  padding: 2px 8px 2px 0;
+}
+.boards th {
+  text-align: left;
+  padding: 2px 8px 2px 0;
+  color: var(--subject);
+}

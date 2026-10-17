@@ -1,0 +1,4 @@
+packages:
+  - packages/board-core
+  - packages/dsh-board
+  - apps/web

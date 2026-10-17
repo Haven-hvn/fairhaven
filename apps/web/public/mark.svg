@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" fill="currentColor" aria-label="Fairhaven">
+  <!--
+    Fairhaven mark. A haven: two towers, a crenellated wall, one open arched
+    doorway (negative space, so it reads on any background). The pennant is
+    the "fair": a fairground flag, the only thing on the skyline that moves.
+    Flat, square, monochrome; survives 16 px. Not for the navbar.
+  -->
+  <path fill-rule="evenodd" d="
+    M6 60 V12 H10 V16 H18 V12 H22 V26 H26 V22 H30 V26 H34 V22 H38 V26 H42 V12 H46 V16 H54 V12 H58 V60 Z
+    M26 60 V38 A6 6 0 0 1 38 38 V60 Z
+  "/>
+  <path d="M31.5 26 V4 H32.5 V26 Z M32.5 4 L41 7.5 L32.5 11 Z"/>
+</svg>

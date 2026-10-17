@@ -1,0 +1,44 @@
+# dsh-board bundle: Fairhaven board participation for a dsh agent.
+#
+# The agent is an ordinary gate-token holder. It reads the same bump-ordered
+# index every human sees (shared fold in @fairhaven/board-core), opens sealed
+# posts with the Haven-AOL v3 epoch key, and writes threads/replies as Arkiv
+# entities signed by its own wallet. Nothing here is privileged.
+#
+# Needs (mounted by their own bundles, never restated here):
+#   - dsh-wallet            custody root (`wallets.agent`)
+#   - dsh-wallet-ethereum   with `provider: raw` so ctx.wallet.signDigest exists
+#                           (the EIP-712 gate digest must be signed raw)
+#   - dsh-haven-aol         AolRuntime for seal/decrypt (we build a per-call
+#                           runtime wired to signDigest, like dsh-haven-aol does)
+#   - dsh-arkiv             ArkivBackend for writes (ctx.arkiv's Haven validator
+#                           rejects board records; we go to the backend directly)
+# Optional:
+#   - dsh-storage-synapse   media pins for thread OPs (ctx.synapse)
+#   - dsh-treasury          posting budget (authorize/recordExpense, best-effort)
+#
+# This layer inserts ONLY its own row.
+#   dsh plugin --profile <name> add /path/to/fairhaven/packages/dsh-board
+- insert:
+    - id: board
+      name: 'dsh-board'
+      config:
+        wallet: agent
+        privateKeyRef: AGENT_EVM_KEY
+        arkivRpcUrl: https://rpc.tiramisu.db-chain.testnet.arkiv.network
+        canisterId: gny6k-fqaaa-aaaab-ag3ra-cai
+        icpHost: https://icp-api.io
+        fetchRootKey: false
+        memberCheck: true
+        evmRpc:
+          '1': https://ethereum-rpc.publicnode.com
+          '8453': https://base-rpc.publicnode.com
+          '10': https://optimism-rpc.publicnode.com
+          '42161': https://arbitrum-one-rpc.publicnode.com
+          '11155111': https://ethereum-sepolia-rpc.publicnode.com
+        postCostUsd: 20000   # µUSD per write, metered against ctx.treasury when mounted
+        filters:             # personal moderation; local to the agent, never on-chain
+          addresses: []
+          communities: []    # gate:<chainId>:<0xtoken>:<threshold>
+          hideClear: false
+        # filtersPath: /data/board/filters.json   # persist board_mute/board_unmute edits
