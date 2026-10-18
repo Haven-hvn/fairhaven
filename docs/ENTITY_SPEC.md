@@ -5,7 +5,7 @@
 > BTL). Nothing here changes the chain, the canister, or any SDK. Writers emit exactly
 > these keys; readers read exactly these keys; no aliases, no fallbacks.
 >
-> Writer values are **bare** (string → `str`, integer → `i32`), matching haven-dapp and
+> Writer values are **bare** (string → `str`, integer → `i32`, `gate_threshold` bigint → `u256`), matching haven-dapp and
 > haven-cli so equality queries compare type-exact. Entity keys are stored as lowercase
 > `0x` hex strings in `str` attributes (the `series_ref` precedent). Addresses are
 > lowercase `0x` hex `str`.
@@ -39,7 +39,7 @@ record. A gate with no `haven.board.def` is still a board: clients use the impli
 | `gate_type` | i32 | yes | always `3` |
 | `gate_token` | str | yes | lowercase address |
 | `gate_chain` | i32 | yes | EIP-155 id (1, 11155111, 42161, 8453, 10) |
-| `gate_threshold` | i32 | yes | raw `balanceOf` units; must fit i32; > 0 |
+| `gate_threshold` | u256 | yes | raw `balanceOf` units; > 0 (u256, as Haven writes it — real ERC-20 thresholds like 1e18 do not fit i32) |
 | `bump_limit` | i32 | yes | replies after which a thread stops bumping |
 | `capacity` | i32 | yes | max live threads in the index |
 | `page_size` | i32 | yes | threads per page |
@@ -63,7 +63,7 @@ one with the lowest `createdAt` (first writer wins) and show the owner.
 | `gate_type` | i32 | yes | `3` |
 | `gate_token` | str | yes | community discovery (same as media records) |
 | `gate_chain` | i32 | yes | |
-| `gate_threshold` | i32 | yes | |
+| `gate_threshold` | u256 | yes | |
 | `mime` | i32 | yes | shared Haven MIME enum; `0` = no media |
 | `sealed` | i32 | yes | bitmask: `1` text sealed, `2` media sealed. Lets a non-holder client frost the right parts from attributes alone |
 | `sha256_ct` | str | yes | sha256 hex (bare) of the stored `text` bytes (sealed bytes if sealed, UTF-8 if clear) |

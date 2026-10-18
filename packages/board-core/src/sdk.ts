@@ -20,7 +20,7 @@ function isTagged(x: unknown): x is Tagged {
 function unwrap(v: unknown): unknown {
   const inner = isTagged(v) ? v.value : v
   if (typeof inner === 'bigint') {
-    // i32/u64 facts fit a number; u256 thresholds in boards are ≤ i32 by spec.
+    // i32/u64 facts fit a number; u256 thresholds keep exact decimal-string form.
     return inner <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(inner) : inner.toString()
   }
   return inner

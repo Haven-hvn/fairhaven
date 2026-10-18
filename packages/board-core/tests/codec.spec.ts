@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildDefWrite, buildPostWrite, buildThreadWrite, decodePayload, gateVersionOf, implicitSlug, parseEntity, sealedMaskOf } from '../src/codec.ts'
+import { buildDefWrite, buildPostWrite, buildThreadWrite, decodePayload, gateFromAttributes, gateVersionOf, implicitSlug, parseEntity, sealedMaskOf } from '../src/codec.ts'
 import { utf8Decode } from '../src/bytes.ts'
 import type { BoardGate, BoardPayload } from '../src/types.ts'
 import vectors from './fixtures/board-payload-vectors.json'
@@ -50,13 +50,24 @@ describe('writers (fixture-pinned)', () => {
           expiresIn: input.expiresIn as number,
         })
       }
-      expect(write.attributes).toEqual(v.attributes)
+      // gate_threshold is a u256 (bigint); the fixture pins its numeric value.
+      expect(Object.fromEntries(Object.entries(write.attributes).map(([k, val]) => [k, typeof val === 'bigint' ? Number(val) : val]))).toEqual(v.attributes)
       expect(write.expiresIn).toBe(v.expiresIn)
       expect(write.contentType).toBe('application/json')
       const payload = JSON.parse(utf8Decode(write.payload))
       expect(payload).toEqual(v.kind === 'def' ? v.payload : input.payload)
       expect(Object.keys(write.attributes).length).toBeLessThanOrEqual(11)    })
   }
+
+  it('writes a real 18-decimal gate threshold (1e18) as u256, and reads u256 thresholds exactly', () => {
+    const big: BoardGate = { chain: 'EthSepolia', tokenAddress: `0x${'f2'.repeat(20)}`, threshold: 1000000000000000000n }
+    const w = buildPostWrite({ board: 'a.b', rootRef: `0x${'1'.repeat(64)}`, noBump: false, gate: big, payload: { v: 1, text: { clear: 'hi' } }, sha256Ct: '0'.repeat(64) })
+    expect(w.attributes.gate_threshold).toBe(1000000000000000000n)
+    // Beyond float precision: exact decimal string round-trips.
+    const huge = 123456789012345678901234567890n
+    expect(gateFromAttributes({ gate_token: big.tokenAddress, gate_chain: 11155111, gate_threshold: huge.toString() })?.threshold).toBe(huge)
+    expect(gateFromAttributes({ gate_token: big.tokenAddress, gate_chain: 11155111, gate_threshold: huge })?.threshold).toBe(huge)
+  })
 
   it('rejects gate/sealed mismatch', () => {
     expect(() =>

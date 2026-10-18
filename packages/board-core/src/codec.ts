@@ -98,15 +98,18 @@ function requireExpires(name: string, s: number): number {
   return s
 }
 
-export function gateAttributes(gate: BoardGate): Record<string, string | number> {
+const U256_MAX = (1n << 256n) - 1n
+
+/** Gate attributes. `gate_threshold` is a u256 cell (as Haven writes it): real ERC-20 thresholds (1e18 and beyond) do not fit i32. */
+export function gateAttributes(gate: BoardGate): Record<string, string | number | bigint> {
   if (!CHAIN_VARIANTS.includes(gate.chain)) throw new BoardCodecError(`unknown chain ${String(gate.chain)}`)
   if (gate.threshold <= 0n) throw new BoardCodecError('gate threshold must be > 0')
-  if (gate.threshold > 0x7fffffffn) throw new BoardCodecError('gate threshold must fit i32 (board gates are counted in raw units ≤ 2^31-1)')
+  if (gate.threshold > U256_MAX) throw new BoardCodecError('gate threshold exceeds u256')
   return {
     gate_type: GATE_TYPE_V3,
     gate_token: normalizeAddress(gate.tokenAddress),
     gate_chain: VARIANT_TO_EIP155[gate.chain],
-    gate_threshold: Number(gate.threshold),
+    gate_threshold: gate.threshold,
   }
 }
 
@@ -279,14 +282,21 @@ function int(v: unknown): number | undefined {
   return undefined
 }
 
+function bigInt(v: unknown): bigint | undefined {
+  if (typeof v === 'bigint') return v
+  if (typeof v === 'number' && Number.isInteger(v)) return BigInt(v)
+  if (typeof v === 'string' && /^-?\d+$/.test(v)) return BigInt(v)
+  return undefined
+}
+
 export function gateFromAttributes(attrs: Record<string, unknown>): BoardGate | undefined {
   const token = str(attrs.gate_token)
   const chainId = int(attrs.gate_chain)
-  const threshold = int(attrs.gate_threshold)
+  const threshold = bigInt(attrs.gate_threshold)
   if (!token || chainId === undefined || threshold === undefined) return undefined
   const chain: ChainVariant | undefined = EIP155_TO_VARIANT[chainId]
-  if (!chain || !ADDR_RE.test(token.toLowerCase()) || threshold <= 0) return undefined
-  return { chain, tokenAddress: token.toLowerCase(), threshold: BigInt(threshold) }
+  if (!chain || !ADDR_RE.test(token.toLowerCase()) || threshold <= 0n) return undefined
+  return { chain, tokenAddress: token.toLowerCase(), threshold }
 }
 
 /** Gate protocol version inside a gate JSON string; undefined when unparsable. */

@@ -67,10 +67,10 @@ async function arkivWallet(wallet: BrowserWallet) {
 
 async function sendWrite(wallet: BrowserWallet, w: EntityWrite, onProgress?: ProgressFn): Promise<{ key: string; txHash: string }> {
   const { client, ExpirationTime } = await arkivWallet(wallet)
-  const { i32, str } = await import('@arkiv-network/sdk/attr')
+  const { i32, str, u256 } = await import('@arkiv-network/sdk/attr')
   const attributes: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(w.attributes)) {
-    attributes[k] = typeof v === 'number' ? i32(v) : str(v)
+    attributes[k] = typeof v === 'bigint' ? u256(v) : typeof v === 'number' ? i32(v) : str(v)
   }
   onProgress?.({ stage: 'indexing' })
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

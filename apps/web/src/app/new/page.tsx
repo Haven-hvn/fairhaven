@@ -109,7 +109,7 @@ export default function NewBoardPage() {
               <input type="text" value={token} onChange={(e) => setToken(e.target.value.trim())} placeholder="0x token (ERC-20 or ERC-721)" style={{ width: 340 }} /> ≥{' '}
               <input type="text" value={threshold} onChange={(e) => setThreshold(e.target.value.trim())} style={{ width: 80 }} />
               <div className="exposure">
-                Raw <b>balanceOf</b> units. For an 18-decimal ERC-20 “1 token” is 1000000000000000000; thresholds must fit a 32-bit integer, so prefer NFTs or low-decimal tokens.
+                Raw <b>balanceOf</b> units. For an 18-decimal ERC-20 “1 token” is 1000000000000000000; thresholds are written as u256, so 18-decimal amounts are fine.
                 {gate && address && holds.data !== undefined && <> You hold <b>{holds.data.toString()}</b>.</>}
               </div>
             </td>

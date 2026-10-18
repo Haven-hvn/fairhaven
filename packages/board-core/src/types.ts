@@ -130,9 +130,9 @@ export interface PostRecord {
 
 export type BoardRecord = BoardDef | ThreadRecord | PostRecord
 
-/** What a writer hands to an Arkiv client. Attribute values are bare (str/i32). */
+/** What a writer hands to an Arkiv client. Attribute values are bare (str/i32/u256 for `gate_threshold`). */
 export interface EntityWrite {
-  attributes: Record<string, string | number>
+  attributes: Record<string, string | number | bigint>
   payload: Uint8Array
   contentType: 'application/json'
   /** Seconds. Multiple of BLOCK_TIME_S. */
