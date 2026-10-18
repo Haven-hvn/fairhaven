@@ -124,4 +124,73 @@ describe('submitReply (public)', () => {
     expect(pendingProgressLabel('signing')).toMatch(/confirm in your wallet/)
     expect(pendingProgressLabel(undefined)).toMatch(/not posted yet/)
   })
+
+  it('restores the pre-write network after a write; a refused switch fails without stranding', async () => {
+    const [topic0, topicKey, topicOwner] = encodeEventTopics({
+      abi: parseAbi(['event EntityCreated(bytes32 indexed entityKey, address indexed owner, uint64 expiresAt, uint8 creationFlags)']),
+      eventName: 'EntityCreated',
+      args: { entityKey: ENTITY_KEY, owner: OWNER },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    }) as any as [`0x${string}`, `0x${string}`, `0x${string}`]
+    const receipt = {
+      transactionHash: TX_HASH, transactionIndex: '0x0', blockHash: `0x${'44'.repeat(32)}`, blockNumber: '0x64',
+      from: OWNER, to: ARKIV_ADDRESS, contractAddress: null, status: '0x1', gasUsed: '0x5208',
+      cumulativeGasUsed: '0x5208', effectiveGasPrice: '0x1', type: '0x2',
+      logs: [{ address: ARKIV_ADDRESS, topics: [topic0, topicKey, topicOwner], data: `0x${(200n).toString(16).padStart(64, '0')}${(0n).toString(16).padStart(64, '0')}`, blockHash: `0x${'44'.repeat(32)}`, blockNumber: '0x64', transactionHash: TX_HASH, transactionIndex: '0x0', logIndex: '0x0', removed: false }],
+      logsBloom: `0x${'00'.repeat(256)}`,
+    }
+    const gate = { chain: 'BaseMainnet', tokenAddress: '0x5555555555555555555555555555555555555555', threshold: 1n } as const
+
+    for (const refuseSwitch of [false, true]) {
+      // Wallet starts on Base (8453), an AppKit-supported gate chain.
+      let currentChain = '0x2105'
+      const switches: string[] = []
+      const provider = {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        request: async ({ method, params }: any) => {
+          switch (method) {
+            case 'eth_chainId': return currentChain
+            case 'wallet_switchEthereumChain': {
+              if (refuseSwitch) throw Object.assign(new Error('user rejected switch'), { code: 4001 })
+              currentChain = params[0].chainId
+              switches.push(params[0].chainId)
+              return null
+            }
+            case 'eth_blockNumber': return '0x64'
+            case 'eth_getTransactionCount': return '0x0'
+            case 'eth_estimateGas': return '0x30000'
+            case 'eth_maxPriorityFeePerGas': return '0x1'
+            case 'eth_gasPrice': return '0x1'
+            case 'eth_feeHistory': return { baseFeePerGas: ['0x1', '0x1'], gasUsedRatio: [0.5], reward: [['0x1']], oldestBlock: '0x64' }
+            case 'eth_call': return '0x'
+            case 'eth_sendTransaction': return TX_HASH
+            case 'eth_getTransactionReceipt': return receipt
+            default: throw new Error(`unexpected RPC method ${method}`)
+          }
+        },
+      }
+      const wallet = { account: { address: OWNER }, transport: { value: provider } } as unknown as BrowserWallet
+      const attempt = submitReply({
+        wallet,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        board: { ref: { slug: 'test.board', gate }, postTtlS: 3600 } as any,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        root: { kind: 'thread', key: `0x${'aa'.repeat(32)}`, owner: OWNER, board: 'test.board', subject: 'hi', gate } as any,
+        text: 'hello', sealText: false, noBump: false,
+      })
+      if (refuseSwitch) {
+        // viem will not send a Tiramisu tx from Base, so a refused switch
+        // must fail the post — but the wallet stays on Base, not stranded.
+        await expect(attempt).rejects.toThrow(/did not switch to the Arkiv chain/)
+        expect(currentChain).toBe('0x2105')
+        continue
+      }
+      const res = await attempt
+      expect(res).toEqual({ key: ENTITY_KEY, txHash: TX_HASH })
+      // Switched to Arkiv for the tx, then back to Base — never left on a
+      // chain AppKit does not support.
+      expect(switches).toEqual(['0x7614d1', '0x2105'])
+      expect(currentChain).toBe('0x2105')
+    }
+  })
 })

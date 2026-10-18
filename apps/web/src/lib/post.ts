@@ -132,18 +132,41 @@ async function arkivWallet(wallet: BrowserWallet, onProgress?: ProgressFn) {
             : undefined
   if (!provider?.request) throw new Error('wallet provider not available for signing')
   // Sign through the connected wallet's own provider (works for injected and
-  // WalletConnect alike). The tx is on Arkiv's chain, so ask the wallet to
-  // switch (adding the chain first when the wallet does not know it). A
-  // refusal or silence is fatal here: carrying on would read block height
-  // from the wrong chain and never prompt for the Arkiv entity.
-  onProgress?.({ stage: 'switching' })
+  // WalletConnect alike). Tiramisu is NOT in the AppKit/wagmi network list
+  // (those are the EVM gate chains), so a wallet left on it makes AppKit show
+  // its unsupported-network screen. The switch stays mandatory — viem
+  // refuses to send a Tiramisu tx from another chain anyway — but, following
+  // the haven-dapp drip pattern of keeping Arkiv writes outside wagmi, the
+  // caller restores the pre-write network via `restoreNetwork` afterwards,
+  // so the wallet never stays on Tiramisu.
+  let previousChainIdHex: string | undefined
+  try {
+    const id: unknown = await provider.request({ method: 'eth_chainId' })
+    if (typeof id === 'string' && /^0x[0-9a-fA-F]+$/.test(id)) previousChainIdHex = id
+  } catch {
+    // Unknown pre-write chain: nothing to restore to.
+  }
   const chainIdHex = `0x${Number(chain.id).toString(16)}`
+  /** Best-effort return to the pre-write network; never masks the write. */
+  const restoreNetwork = async (): Promise<void> => {
+    if (!previousChainIdHex || previousChainIdHex.toLowerCase() === chainIdHex.toLowerCase()) return
+    try {
+      await withWalletTimeout(provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: previousChainIdHex }] }), 'switch back to the previous chain')
+    } catch {
+      // The write already landed (or failed on its own merits); a refused
+      // switch-back must not turn that into a second error.
+    }
+  }
+  onProgress?.({ stage: 'switching' })
   try {
     await withWalletTimeout(provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: chainIdHex }] }), 'switch to the Arkiv chain')
   } catch (e) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const code = (e as any)?.code
-    if (code !== 4902) throw new Error(`wallet did not switch to the Arkiv chain: ${e instanceof Error ? e.message : String(e)}`)
+    if (code !== 4902) {
+      await restoreNetwork()
+      throw new Error(`wallet did not switch to the Arkiv chain: ${e instanceof Error ? e.message : String(e)}`)
+    }
     try {
       await withWalletTimeout(
         provider.request({
@@ -154,32 +177,37 @@ async function arkivWallet(wallet: BrowserWallet, onProgress?: ProgressFn) {
       )
       await withWalletTimeout(provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: chainIdHex }] }), 'switch to the Arkiv chain')
     } catch (addErr) {
+      await restoreNetwork()
       throw new Error(`wallet did not switch to the Arkiv chain: ${addErr instanceof Error ? addErr.message : String(addErr)}`)
     }
   }
   const client = createWalletClient({ account: address, chain, transport: custom(provider) } as never)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   if (typeof (client as any).createEntity !== 'function') throw new Error('Arkiv wallet client unavailable (createEntity missing)')
-  return { client, ExpirationTime }
+  return { client, ExpirationTime, restoreNetwork }
 }
 
 async function sendWrite(wallet: BrowserWallet, w: EntityWrite, onProgress?: ProgressFn): Promise<{ key: string; txHash: string }> {
-  const { client, ExpirationTime } = await arkivWallet(wallet, onProgress)
-  const { i32, str, u256 } = await import('@arkiv-network/sdk/attr')
-  const attributes: Record<string, unknown> = {}
-  for (const [k, v] of Object.entries(w.attributes)) {
-    attributes[k] = typeof v === 'bigint' ? u256(v) : typeof v === 'number' ? i32(v) : str(v)
+  const { client, ExpirationTime, restoreNetwork } = await arkivWallet(wallet, onProgress)
+  try {
+    const { i32, str, u256 } = await import('@arkiv-network/sdk/attr')
+    const attributes: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(w.attributes)) {
+      attributes[k] = typeof v === 'bigint' ? u256(v) : typeof v === 'number' ? i32(v) : str(v)
+    }
+    onProgress?.({ stage: 'signing' })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const res = await (client as any).createEntity({
+      payload: w.payload,
+      contentType: w.contentType,
+      attributes,
+      expires: ExpirationTime.fromBlocks(toBlocks(w.expiresIn)),
+    })
+    onProgress?.({ stage: 'done' })
+    return { key: String(res.entityKey).toLowerCase(), txHash: String(res.txHash) }
+  } finally {
+    await restoreNetwork()
   }
-  onProgress?.({ stage: 'signing' })
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const res = await (client as any).createEntity({
-    payload: w.payload,
-    contentType: w.contentType,
-    attributes,
-    expires: ExpirationTime.fromBlocks(toBlocks(w.expiresIn)),
-  })
-  onProgress?.({ stage: 'done' })
-  return { key: String(res.entityKey).toLowerCase(), txHash: String(res.txHash) }
 }
 
 async function pinMedia(bytes: Uint8Array, onProgress?: ProgressFn): Promise<string> {
@@ -298,8 +326,12 @@ export async function submitBoardDef(a: SubmitBoardDefArgs): Promise<{ key: stri
 
 /** Owner-only delete (Arkiv DELETE by the record owner). */
 export async function deletePost(wallet: BrowserWallet, key: string): Promise<{ txHash: string }> {
-  const { client } = await arkivWallet(wallet)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const res = await (client as any).deleteEntity({ entityKey: key as `0x${string}` })
-  return { txHash: String(res.txHash) }
+  const { client, restoreNetwork } = await arkivWallet(wallet)
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const res = await (client as any).deleteEntity({ entityKey: key as `0x${string}` })
+    return { txHash: String(res.txHash) }
+  } finally {
+    await restoreNetwork()
+  }
 }
