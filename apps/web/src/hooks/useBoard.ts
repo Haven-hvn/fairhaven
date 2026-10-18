@@ -33,6 +33,7 @@ import {
   type GlobalIndex,
   type IndexPageItem,
   type PostRecord,
+  type RawEntity,
   type ResolvedBoard,
   type ThreadRecord,
 } from '@fairhaven/board-core'
@@ -127,37 +128,32 @@ export function useResolvedBoard(slugOrGate: string | null) {
     queryKey: ['board', slugOrGate],
     queryFn: async () => {
       if (!slugOrGate) return null
-      // Reuse the boards list when it is already cached instead of re-querying defs.
-      const cached = qc.getQueryData<BoardDef[]>(['boards'])
-      if (cached) {
-        const gate = parseGateSpec(slugOrGate)
-        const def = gate ? cached.find((b) => sameGate(b.gate, gate)) : (cached.find((b) => b.board === slugOrGate) ?? cached.find((b) => implicitSlug(b.gate) === slugOrGate))
-        if (def) return resolveFrom(def, def.gate)
-        if (gate) return resolveFrom(undefined, gate)
-        return null
-      }
-      return (await resolveBoard(arkivStore, slugOrGate)) ?? null
+      // One shared boards fetch for the whole app (persisted across reloads).
+      const boards = await qc.fetchQuery({ queryKey: ['boards'], queryFn: () => loadBoards(arkivStore), staleTime: 60_000 })
+      const gate = parseGateSpec(slugOrGate)
+      const def = gate ? boards.find((b) => sameGate(b.gate, gate)) : (boards.find((b) => b.board === slugOrGate) ?? boards.find((b) => implicitSlug(b.gate) === slugOrGate))
+      if (def) return resolveFrom(def, def.gate)
+      if (gate) return resolveFrom(undefined, gate)
+      return null
     },
     enabled: !!slugOrGate,
     staleTime: 60_000,
   })
 }
 
-/** Legacy implicit slugs carry no threshold/token suffix, so a def-less board cannot be resolved from the slug alone. Recover the gate from the thread root entity itself (one batched read), then resolve against defs by gate. */
+/** Legacy implicit slugs carry no threshold/token suffix, so a def-less board cannot be resolved from the slug alone. Read the root once, recover its gate, and share that raw root with `loadThread` (no second read). Defs come from the shared `['boards']` fetch. */
 export function useBoardFromRoot(rootKey: string | null, enabled: boolean) {
   const qc = useQueryClient()
   return useQuery({
     queryKey: ['board-from-root', rootKey],
-    queryFn: async () => {
+    queryFn: async (): Promise<{ board: ResolvedBoard; raw: RawEntity } | null> => {
       if (!rootKey) return null
       const raw = (await arkivStore.getMany?.([rootKey]))?.[0]
       const gate = raw ? gateOfRaw(raw) : undefined
-      if (!gate) return null
-      const cached = qc.getQueryData<BoardDef[]>(['boards'])
-      const def = cached?.find((b) => sameGate(b.gate, gate))
-      if (def) return resolveFrom(def, def.gate)
-      const boards = await loadBoards(arkivStore).catch(() => undefined)
-      return resolveFrom(boards?.find((b) => sameGate(b.gate, gate)), gate)
+      if (!raw || !gate) return null
+      const boards = await qc.fetchQuery({ queryKey: ['boards'], queryFn: () => loadBoards(arkivStore), staleTime: 60_000 }).catch(() => [] as BoardDef[])
+      const def = boards.find((b) => sameGate(b.gate, gate))
+      return { board: resolveFrom(def, gate), raw }
     },
     enabled: enabled && !!rootKey,
     staleTime: 60_000,
@@ -281,7 +277,7 @@ export function useGlobalFeed(page: number) {
   return { index: q, page: pageQ, currentBlock: block.data ?? undefined, boards: q.data?.boards ?? new Map<string, ResolvedBoard>(), loadMore }
 }
 
-export function useThread(board: ResolvedBoard | null | undefined, rootKey: string | null) {
+export function useThread(board: ResolvedBoard | null | undefined, rootKey: string | null, rootRaw?: RawEntity) {
   const block = useCurrentBlock()
   useChangeProbe(['thread'])
   useEntityWatch()
@@ -289,7 +285,7 @@ export function useThread(board: ResolvedBoard | null | undefined, rootKey: stri
     queryKey: ['thread', board?.ref.slug, rootKey],
     queryFn: async () => {
       if (!board || !rootKey) return null
-      const t = await loadThread(arkivStore, board, rootKey, block.data ?? undefined)
+      const t = await loadThread(arkivStore, board, rootKey, block.data ?? undefined, ...(rootRaw ? [{ rootRaw }] as const : []))
       if (!t) return null
       const owners = [t.root.owner, ...t.replies.map((r) => r.owner)]
       const member = await membership.memberMap(board.ref.gate, owners)

@@ -45,6 +45,8 @@ export interface EntityStore {
    * Optional for legacy stores; hydration falls back to `get` only then.
    */
   getMany?(keys: string[], opts?: { payload?: boolean }): Promise<RawEntity[]>
+  /** OR of AND-clause sets in one charged call. A `$key` clause matches the entity key. */
+  queryOr?(clauses: WhereClause[], opts?: QueryOptions): Promise<QueryPage>
 }
 
 /** HTTP 429 from the anonymous Arkiv RPC tier. Never swallowed as "missing". */
@@ -381,15 +383,40 @@ export interface LoadedThread {
   replies: PostRecord[]
 }
 
-export async function loadThread(store: EntityStore, board: ResolvedBoard, rootKey: string, currentBlock?: number): Promise<LoadedThread | undefined> {
-  const raw = await store.get(rootKey.toLowerCase(), { payload: true })
-  if (!raw) return undefined
-  const root = parseEntity(raw, { board: board.ref })
+export interface LoadThreadOptions {
+  /** Root already fetched by the caller (shared, not re-read). */
+  rootRaw?: RawEntity
+}
+
+export async function loadThread(store: EntityStore, board: ResolvedBoard, rootKey: string, currentBlock?: number, opts: LoadThreadOptions = {}): Promise<LoadedThread | undefined> {
+  const rootK = rootKey.toLowerCase()
+  let rootRaw = opts.rootRaw
+  const replyRows: RawEntity[] = []
+  if (rootRaw) {
+    // Root shared by the caller: only the replies query remains.
+    replyRows.push(...(await queryAll(store, [['grp', GRP_POST], ['root_ref', rootK]], { payload: true })))
+  } else if (store.queryOr) {
+    // Root + replies in ONE charged call, paged as a combined result.
+    let cursor: string | undefined
+    for (;;) {
+      const page = await store.queryOr([[['$key', rootK]], [['grp', GRP_POST], ['root_ref', rootK]]], { payload: true, limit: PAGE, ...(cursor ? { cursor } : {}) })
+      for (const r of page.entities) {
+        if (r.key.toLowerCase() === rootK && !rootRaw) rootRaw = r
+        else replyRows.push(r)
+      }
+      if (!page.cursor || page.entities.length === 0) break
+      cursor = page.cursor
+    }
+  } else {
+    rootRaw = await store.get(rootK, { payload: true })
+    if (rootRaw) replyRows.push(...(await queryAll(store, [['grp', GRP_POST], ['root_ref', rootK]], { payload: true })))
+  }
+  if (!rootRaw) return undefined
+  const root = parseEntity(rootRaw, { board: board.ref })
   if (root?.kind !== 'thread' || !sameGate(root.gate, board.ref.gate)) return undefined
   if (currentBlock !== undefined && root.expiresAt !== undefined && root.expiresAt <= currentBlock) return undefined
-  const rows = await queryAll(store, [['grp', GRP_POST], ['root_ref', root.key]], { payload: true })
   const replies = dropExpired(
-    rows
+    replyRows
       .map((r) => parseEntity(r, { board: board.ref }))
       .filter((r): r is PostRecord => r?.kind === 'post' && r.board === board.ref.slug && sameGate(r.gate, board.ref.gate)),
     currentBlock,

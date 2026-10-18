@@ -145,6 +145,25 @@ async function getMany(keys: string[], opts: { payload?: boolean } = {}): Promis
   })
 }
 
+async function queryOr(clauses: WhereClause[], opts: QueryOptions = {}): Promise<QueryPage> {
+  const key = `o:${JSON.stringify(clauses)}:${opts.payload ? 1 : 0}:${opts.limit ?? ''}:${opts.cursor ?? ''}`
+  return budgeted(key, async () => {
+    const c: ArkivClient = await client()
+    const { and, eq, or } = await import('@arkiv-network/sdk/query')
+    const { key: keyVal } = await import('@arkiv-network/sdk')
+    const selection = { key: true, owner: true, createdAt: true, expiresAt: true, attributes: true, ...(opts.payload === false ? {} : { payload: true }) }
+    let b = c.select(selection)
+    const clause = (k: string, v: string | number | readonly string[]) => k === '$key' ? eq('$key', keyVal(String(v) as `0x${string}`)) : Array.isArray(v) ? or(v.map((x) => eq(k, x as never))) : eq(k, v as never)
+    const sets = clauses.map((set) => { const cs = set.map(([k, v]) => clause(k, v)); return cs.length === 1 ? cs[0]! : and(cs) })
+    b = b.where(sets.length === 1 ? sets[0] : or(sets))
+    b = b.limit(opts.limit ?? 100)
+    if (opts.cursor) b = b.cursor(opts.cursor)
+    const res = await b.fetch()
+    const entities = ((res.entities ?? []) as unknown[]).map((r) => toRawEntity(r as Record<string, unknown>)).filter((e): e is RawEntity => e !== undefined)
+    return { entities, ...(res.cursor ? { cursor: String(res.cursor) } : {}) }
+  })
+}
+
 async function get(key: string): Promise<RawEntity | undefined> {
   try {
     const [row] = await getMany([key])
@@ -175,7 +194,7 @@ async function entityCount(): Promise<number | undefined> {
   }
 }
 
-export const arkivStore: EntityStore & { currentBlock(): Promise<number | undefined>; entityCount(): Promise<number | undefined> } = { query, get, getMany, currentBlock, entityCount }
+export const arkivStore: EntityStore & { currentBlock(): Promise<number | undefined>; entityCount(): Promise<number | undefined> } = { query, queryOr, get, getMany, currentBlock, entityCount }
 
 export interface EntityWatchEvent { type: string; entityKey: string }
 

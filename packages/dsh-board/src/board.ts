@@ -163,6 +163,16 @@ async function liveStore(opts: BoardRuntimeOpts): Promise<EntityStore & { curren
       const entities = ((res.entities ?? []) as unknown[]).map((r) => toRawEntity(r as Record<string, unknown>)).filter((e): e is RawEntity => e !== undefined)
       return { entities, ...(res.cursor ? { cursor: String(res.cursor) } : {}) }
     },
+    async queryOr(clauses: WhereClause[], q: QueryOptions = {}): Promise<QueryPage> {
+      let b = client.select({ key: true, owner: true, createdAt: true, expiresAt: true, attributes: true, ...(q.payload === false ? {} : { payload: true }) })
+      const clause = (k: string, v: string | number | readonly string[]) => k === '$key' ? eq('$key', keyVal(String(v) as `0x${string}`)) : Array.isArray(v) ? or(v.map((x) => eq(k, x as never))) : eq(k, v as never)
+      const sets = clauses.map((set) => { const cs = set.map(([k, v]) => clause(k, v)); return cs.length === 1 ? cs[0]! : and(cs) })
+      b = b.where(sets.length === 1 ? sets[0] : or(sets))
+      b = b.limit(q.limit ?? 100)
+      if (q.cursor) b = b.cursor(q.cursor)
+      const res = await b.fetch()
+      return { entities: ((res.entities ?? []) as unknown[]).map((r) => toRawEntity(r as Record<string, unknown>)).filter((e): e is RawEntity => e !== undefined), ...(res.cursor ? { cursor: String(res.cursor) } : {}) }
+    },
     async getMany(keys: string[]): Promise<RawEntity[]> {
       if (keys.length === 0) return []
       let b = client.select({ key: true, owner: true, createdAt: true, expiresAt: true, attributes: true, payload: true })

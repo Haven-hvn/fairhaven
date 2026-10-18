@@ -32,7 +32,7 @@ function ThreadInner() {
   const key = params.get('k')
   const board = useResolvedBoard(slug)
   const fallback = useBoardFromRoot(key, !board.isLoading && !board.isError && board.data === null)
-  const thread = useThread(board.data ?? fallback.data, key)
+  const thread = useThread(board.data ?? fallback.data?.board, key, fallback.data?.raw)
   const block = useCurrentBlock()
   const [quote, setQuote] = useState<string | null>(null)
   const pending = useSession(useShallow((s) => s.pending.filter((p) => p.root === key?.toLowerCase() && !p.key && !p.error)))
@@ -48,7 +48,7 @@ function ThreadInner() {
     return null
   }
   if (!thread.data) return null
-  const b = (board.data ?? fallback.data)!
+  const b = (board.data ?? fallback.data?.board)!
   const t = thread.data
 
   const observed = Math.floor(Date.now() / 1000)

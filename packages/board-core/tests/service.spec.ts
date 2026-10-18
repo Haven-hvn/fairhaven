@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildDefWrite, buildPostWrite, buildThreadWrite } from '../src/codec.ts'
-import { RateLimitError, applyEntityToGlobalIndex, boardOf, globalPage, hydratePosts, hydrateThreads, indexPage, loadBoards, loadGlobalIndex, loadGlobalMore, loadIndex, loadThread, parseGateSpec, removeEntityFromGlobalIndex, resolveBoard, type EntityStore, type WhereClause } from '../src/service.ts'
+import { RateLimitError, applyEntityToGlobalIndex, boardOf, globalPage, hydratePosts, hydrateThreads, indexPage, loadBoards, loadGlobalIndex, loadGlobalMore, loadIndex, loadThread, parseGateSpec, removeEntityFromGlobalIndex, resolveBoard, type EntityStore, type QueryOptions, type QueryPage, type WhereClause } from '../src/service.ts'
 import type { BoardGate, RawEntity } from '../src/types.ts'
 import { toRawEntity } from '../src/sdk.ts'
 
@@ -13,6 +13,7 @@ class MemStore implements EntityStore {
   getCalls = 0
   getManyCalls: string[][] = []
   queryCalls = 0
+  queryOrCalls = 0
   add(key: string, attributes: Record<string, unknown>, payload: Uint8Array, createdAt: number, expiresAt?: number): string {
     this.rows.push({ key, owner: OWNER, createdAt, ...(expiresAt !== undefined ? { expiresAt } : {}), attributes, payload })
     return key
@@ -28,6 +29,15 @@ class MemStore implements EntityStore {
   async get(key: string) {
     this.getCalls++
     return this.rows.find((r) => r.key === key.toLowerCase())
+  }
+  async queryOr(clauses: WhereClause[], opts: QueryOptions = {}): Promise<QueryPage> {
+    this.queryOrCalls++
+    const matchSet = (r: RawEntity, set: WhereClause) => set.every(([k, v]) => (k === '$key' ? r.key === String(v) : Array.isArray(v) ? v.map(String).includes(String(r.attributes[k])) : String(r.attributes[k]) === String(v)))
+    const hits = this.rows.filter((r) => clauses.some((set) => matchSet(r, set)))
+    const off = opts.cursor ? Number(opts.cursor) : 0
+    const lim = opts.limit ?? hits.length
+    const page = hits.slice(off, off + lim)
+    return { entities: (opts.payload ? page : page.map((r) => ({ ...r, payload: undefined }))) as RawEntity[], ...(off + lim < hits.length ? { cursor: String(off + lim) } : {}) }
   }
   async getMany(keys: string[]) {
     this.getManyCalls.push(keys)
@@ -197,6 +207,23 @@ describe('service', () => {
     expect(g2.threads.get(K(3))?.subject).toBe('renamed')
     expect(removeEntityFromGlobalIndex(g2, K(3)).threads.has(K(3))).toBe(false)
     expect(removeEntityFromGlobalIndex(g2, K(999))).toBe(g2)
+  })
+
+  it('loads a thread in ONE queryOr call (root + replies), and reuses a shared root', async () => {
+    const s = seed()
+    const board = (await resolveBoard(s, 'conf.back'))!
+    s.getCalls = 0; s.queryCalls = 0; s.queryOrCalls = 0; s.getManyCalls = []
+    const t = await loadThread(s, board, K(2), 1000)
+    expect(t?.replies.map((r) => r.key)).toEqual([K(10), K(11), K(13)])
+    expect(s.queryOrCalls).toBe(1)
+    expect(s.getCalls + s.queryCalls).toBe(0)
+    // Shared root: only the replies query remains.
+    const raw = s.rows.find((r) => r.key === K(2))!
+    s.queryOrCalls = 0; s.queryCalls = 0
+    const t2 = await loadThread(s, board, K(2), 1000, { rootRaw: raw })
+    expect(t2?.root.key).toBe(K(2))
+    expect(s.queryOrCalls).toBe(0)
+    expect(s.queryCalls).toBe(1)
   })
 
   it('toRawEntity normalizes SDK rows', () => {
