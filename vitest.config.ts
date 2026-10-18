@@ -13,7 +13,10 @@ export default defineConfig({
     },
   },
   test: {
-    include: ['packages/*/tests/**/*.spec.ts', 'apps/web/tests/**/*.spec.ts'],
+    // Web specs live under `apps/web/tests` but need web-only deps (viem, the
+    // Arkiv SDK), which the packages-only CI job does not install. They run
+    // in the web CI job via `apps/web/vitest.config.ts` instead.
+    include: ['packages/*/tests/**/*.spec.ts'],
     environment: 'node',
   },
 })

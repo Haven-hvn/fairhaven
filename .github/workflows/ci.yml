@@ -79,6 +79,11 @@ jobs:
           npm ci --no-audit --no-fund
           npm run build --if-present
 
+      - name: Test web
+        # Web specs need web-only deps, so they are excluded from the root
+        # suite the packages job runs; run them here after the full install.
+        run: npx vitest run --config apps/web/vitest.config.ts
+
       - name: Build board-core
         run: pnpm --filter @fairhaven/board-core run build
 
