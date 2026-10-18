@@ -3,9 +3,9 @@
 import { Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAccount } from 'wagmi'
-import { CHAIN_LABEL, computeBoardStats, computeMyStats, epochEndUnix, currentEpoch, loadReplies, loadRoots, dropExpired, type BoardStats, type MyStats, type ResolvedBoard } from '@fairhaven/board-core'
+import { CHAIN_LABEL, computeBoardStats, computeMyStats, epochEndUnix, currentEpoch, loadReplies, loadRoots, dropExpired, type BoardIndex, type BoardStats, type MyStats, type ResolvedBoard } from '@fairhaven/board-core'
 import { arkivStore } from '@/lib/arkiv'
 import { useCurrentBlock, useMyMembership, useResolvedBoard, useUnlock } from '@/hooks/useBoard'
 import { RateLimitNotice } from '@/components/RateLimitNotice'
@@ -34,13 +34,18 @@ function StatsInner() {
   const board = useResolvedBoard(slug)
   const block = useCurrentBlock()
   const { address } = useAccount()
+  const qc = useQueryClient()
 
   const data = useQuery({
     queryKey: ['stats', board.data?.ref.slug, address ?? ''],
     queryFn: async () => {
       const b = board.data as ResolvedBoard
       const current = block.data ?? undefined
-      const [roots, replies] = await Promise.all([loadRoots(arkivStore, b.ref), loadReplies(arkivStore, b.ref)])
+      // Reuse the board index when already loaded; only query Arkiv otherwise.
+      const cached = qc.getQueriesData<BoardIndex>({ queryKey: ['index'] }).map(([, d]) => d).find((d) => d?.board.ref.slug === b.ref.slug)
+      const [roots, replies] = cached
+        ? [[...cached.threads.values()], [...cached.posts.values()]]
+        : await Promise.all([loadRoots(arkivStore, b.ref), loadReplies(arkivStore, b.ref)])
       const liveRoots = dropExpired(roots, current)
       const liveReplies = dropExpired(replies, current)
       const clock = { currentBlock: current ?? 0, observedAtUnix: Math.floor(Date.now() / 1000), blockTimeS: 2 }

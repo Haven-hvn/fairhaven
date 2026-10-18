@@ -40,7 +40,7 @@ class MemStore implements EntityStore {
     return key
   }
   async query(where: WhereClause, opts: { payload?: boolean } = {}) {
-    const hits = this.rows.filter((r) => where.every(([k, v]) => String(r.attributes[k]) === String(v)))
+    const hits = this.rows.filter((r) => where.every(([k, v]) => (Array.isArray(v) ? v.map(String).includes(String(r.attributes[k])) : String(r.attributes[k]) === String(v))))
     return { entities: hits.map((r) => (opts.payload ? r : { ...r, payload: undefined })) as RawEntity[] }
   }
   async get(key: string) {

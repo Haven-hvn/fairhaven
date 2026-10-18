@@ -115,10 +115,10 @@ async function query(where: WhereClause, opts: QueryOptions = {}): Promise<Query
   const key = `q:${JSON.stringify(where)}:${opts.payload ? 1 : 0}:${opts.limit ?? ''}:${opts.cursor ?? ''}`
   return budgeted(key, async () => {
     const c: ArkivClient = await client()
-    const { and, eq } = await import('@arkiv-network/sdk/query')
+    const { and, eq, or } = await import('@arkiv-network/sdk/query')
     const selection = (payload: boolean) => ({ key: true, owner: true, createdAt: true, expiresAt: true, attributes: true, ...(payload ? { payload: true } : {}) })
     let b = c.select(selection(opts.payload === true))
-    const clauses = where.map(([k, v]) => eq(k, v as never))
+    const clauses = where.map(([k, v]) => (Array.isArray(v) ? or(v.map((x) => eq(k, x as never))) : eq(k, v as never)))
     b = b.where(clauses.length === 1 ? clauses[0] : and(clauses))
     b = b.limit(opts.limit ?? 100)
     if (opts.cursor) b = b.cursor(opts.cursor)
@@ -176,3 +176,31 @@ async function entityCount(): Promise<number | undefined> {
 }
 
 export const arkivStore: EntityStore & { currentBlock(): Promise<number | undefined>; entityCount(): Promise<number | undefined> } = { query, get, getMany, currentBlock, entityCount }
+
+export interface EntityWatchEvent { type: string; entityKey: string }
+
+/**
+ * Subscribe to entity events over WebSocket (free after handshake).
+ * Resolves to an unwatch function, or `undefined` when WS is unavailable
+ * (callers keep the free entity-count probe as fallback). Never throws.
+ */
+export async function watchEntities(onEvent: (e: EntityWatchEvent) => void): Promise<(() => void) | undefined> {
+  try {
+    const { createPublicClient } = await import('@arkiv-network/sdk')
+    const chains = await import('@arkiv-network/sdk/chains')
+    const { webSocket } = await import('viem')
+    const wsUrl = env.arkivRpcUrl.replace(/^http/, 'ws')
+    if (!wsUrl.startsWith('ws')) return undefined
+    const local = env.arkivRpcUrl.includes('localhost') || env.arkivRpcUrl.includes('127.0.0.1')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const chain = ((local ? (chains as any).localhost : (chains as any).tiramisu) ?? (chains as any).tiramisu) as never
+    const wsClient: ArkivClient = createPublicClient({ chain, transport: webSocket(wsUrl) } as never)
+    return wsClient.watchEntityEvents({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      onEvent: (e: any) => { if (e?.entityKey) onEvent({ type: String(e.type ?? 'EntityPatched'), entityKey: String(e.entityKey).toLowerCase() }) },
+      onError: () => undefined,
+    }) as () => void
+  } catch {
+    return undefined
+  }
+}

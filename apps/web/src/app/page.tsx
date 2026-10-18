@@ -30,7 +30,7 @@ function FeedInner() {
   const router = useRouter()
   const qc = useQueryClient()
   const page = Math.max(1, Number(params.get('p') ?? '1') || 1)
-  const { index, page: pg, currentBlock, boards } = useGlobalFeed(page)
+  const { index, page: pg, currentBlock, boards, loadMore } = useGlobalFeed(page)
   const visible = useMemo(() => pg.data?.items.flatMap((i) => [i.thread, ...i.tail]) ?? [], [pg.data])
   const { hidden, showStubs } = useHidden(visible)
   const pending = useSession(useShallow((s) => s.pending.filter((p) => !p.root && !p.key && !p.error)))
@@ -80,7 +80,7 @@ function FeedInner() {
       ))}
       {pg.isLoading && <div className="muted">Loading the network…</div>}
       {(index.error || pg.error) && <RateLimitNotice error={index.error ?? pg.error} />}
-      {pg.data?.truncated && <div className="notice">Showing the most recent scan window — older threads are not loaded on the anonymous tier.</div>}
+      {pg.data?.truncated && <div className="notice">Showing the most recent scan window. <button onClick={() => void loadMore()}>Load older threads</button></div>}
       {pg.data && pg.data.items.length === 0 && <div className="notice">Nothing on the network yet. <Link href="/new">Define a board</Link> and post the first thread.</div>}
       {pg.data?.items.map((it) => (
         <FeedThread key={it.thread.key} item={it} board={boards.get(gateKey(it.thread.gate))} hidden={hidden} showStubs={showStubs} blockToDate={blockToDate} onReplyTo={(slug, k) => router.push(`/thread?b=${encodeURIComponent(slug)}&k=${k}`)} onDeleted={refresh} />

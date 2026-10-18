@@ -82,3 +82,23 @@ describe('personal filters', () => {
     expect(unfiltered).toEqual(['0xaa', '0xbb'])
   })
 })
+
+describe('MembershipCache batching and persistence', () => {
+  it('memberMap uses one batched read for misses and serves repeats from the persisted store', async () => {
+    let batchCalls = 0
+    const backing = new Map<string, { balance: string; at: number }>()
+    const store = { read: (k: string) => backing.get(k), write: (k: string, balance: string, at: number) => { backing.set(k, { balance, at }) } }
+    const reader = {
+      balanceOf: async () => { throw new Error('should batch') },
+      balancesOf: async (_c: number, _t: string, owners: string[]) => { batchCalls++; return owners.map((o) => (o === B ? 5n : 0n)) },
+    }
+    const c1 = new MembershipCache(reader, { store })
+    const m = await c1.memberMap(OTHER, [A, B, C])
+    expect(batchCalls).toBe(1)
+    expect([m.get(A), m.get(B), m.get(C)]).toEqual([false, true, false])
+    const c2 = new MembershipCache(reader, { store })
+    const m2 = await c2.memberMap(OTHER, [A, B])
+    expect(batchCalls).toBe(1) // persisted store hit, no new RPC
+    expect(m2.get(B)).toBe(true)
+  })
+})

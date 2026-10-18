@@ -22,7 +22,8 @@ import {
 } from './constants.ts'
 import type { BoardDef, BoardGate, BoardRef, PostRecord, RawEntity, ThreadRecord } from './types.ts'
 
-export type WhereClause = Array<[name: string, value: string | number]>
+/** Equality clauses, ANDed. An array value is an OR over that attribute (one charged call, not N). */
+export type WhereClause = Array<[name: string, value: string | number | readonly string[]]>
 
 export interface QueryOptions {
   limit?: number
@@ -81,19 +82,21 @@ async function queryAll(store: EntityStore, where: WhereClause, opts: QueryOptio
   return (await queryAllCounted(store, where, opts)).rows
 }
 
-async function queryAllCounted(store: EntityStore, where: WhereClause, opts: QueryOptions & { maxRows?: number } = {}): Promise<{ rows: RawEntity[]; truncated: boolean }> {
+export const ROOT_GROUPS: readonly string[] = [GRP_THREAD, ...HAVEN_FULL_GROUPS]
+
+async function queryAllCounted(store: EntityStore, where: WhereClause, opts: QueryOptions & { maxRows?: number; cursor?: string } = {}): Promise<{ rows: RawEntity[]; truncated: boolean; cursor?: string }> {
   const cap = opts.maxRows ?? MAX_ROWS
   const out: RawEntity[] = []
-  let cursor: string | undefined
+  let cursor: string | undefined = opts.cursor
   let truncated = false
   while (out.length < cap) {
     const page = await store.query(where, { ...opts, limit: Math.min(opts.limit ?? PAGE, cap - out.length), ...(cursor ? { cursor } : {}) })
     out.push(...page.entities)
     if (out.length > cap || (out.length >= cap && page.cursor)) truncated = true
-    if (!page.cursor || page.entities.length === 0) break
+    if (!page.cursor || page.entities.length === 0) { cursor = page.cursor; break }
     cursor = page.cursor
   }
-  return { rows: out.slice(0, cap), truncated }
+  return { rows: out.slice(0, cap), truncated, ...(truncated && cursor ? { cursor } : {}) }
 }
 
 async function getManyChunked(store: EntityStore, keys: string[], payload: boolean): Promise<RawEntity[]> {
@@ -187,33 +190,32 @@ export interface BoardIndex {
   posts: Map<string, PostRecord>
   /** True when a scan hit `SCAN_ROWS` and older rows were not read. */
   truncated?: boolean
+  /** Continuation cursors for `loadIndexMore` (roots scan, replies scan). */
+  cursor?: string
+  postCursor?: string
   /** Current block if the store knows it (for expiry filtering). */
   currentBlock?: number
 }
 
+/** One OR-query over every root group; rows are filtered to the board's gate/slug client-side. */
+async function queryRoots(store: EntityStore, opts: QueryOptions & { maxRows?: number; cursor?: string } = {}) {
+  return queryAllCounted(store, [['grp', ROOT_GROUPS]], opts)
+}
+
 export async function loadRoots(store: EntityStore, board: BoardRef, opts: { payload?: boolean } = {}): Promise<ThreadRecord[]> {
+  const { rows } = await queryRoots(store, { ...opts, maxRows: SCAN_ROWS })
+  return parseRoots(rows, board)
+}
+
+export function parseRoots(rows: RawEntity[], board: BoardRef): ThreadRecord[] {
   const ctx = { board }
-  const own = await queryAll(store, [['grp', GRP_THREAD], ['board', board.slug]], { ...opts, maxRows: SCAN_ROWS })
-  const havenRows = await Promise.all(
-    HAVEN_FULL_GROUPS.map((g) =>
-      queryAll(
-        store,
-        [
-          ['grp', g],
-          ['gate_token', board.gate.tokenAddress],
-          ['gate_chain', VARIANT_TO_EIP155[board.gate.chain]],
-        ],
-        { ...opts, maxRows: SCAN_ROWS },
-      ),
-    ),
-  )
-  const rows = [...own, ...havenRows.flat()]
   const out: ThreadRecord[] = []
   const seen = new Set<string>()
   for (const r of rows) {
     const rec = parseEntity(r, ctx)
     if (rec?.kind !== 'thread' || seen.has(rec.key)) continue
-    // Fairhaven threads must carry this board's gate too.
+    // Fairhaven threads must name this board; Haven records must carry its gate.
+    if (rec.source === 'board' && rec.board !== board.slug) continue
     if (!sameGate(rec.gate, board.gate)) continue
     seen.add(rec.key)
     out.push(rec)
@@ -221,8 +223,8 @@ export async function loadRoots(store: EntityStore, board: BoardRef, opts: { pay
   return out
 }
 
-export async function loadReplies(store: EntityStore, board: BoardRef, opts: { payload?: boolean } = {}): Promise<PostRecord[]> {
-  const rows = await queryAll(store, [['grp', GRP_POST], ['board', board.slug]], { ...opts, maxRows: SCAN_ROWS })
+export function parseReplies(rows: RawEntity[], board: BoardRef): PostRecord[] { return parseRepliesFor(rows, board) }
+function parseRepliesFor(rows: RawEntity[], board: BoardRef): PostRecord[] {
   const out: PostRecord[] = []
   for (const r of rows) {
     const rec = parseEntity(r, { board })
@@ -233,6 +235,11 @@ export async function loadReplies(store: EntityStore, board: BoardRef, opts: { p
   return out
 }
 
+export async function loadReplies(store: EntityStore, board: BoardRef, opts: { payload?: boolean } = {}): Promise<PostRecord[]> {
+  const rows = await queryAll(store, [['grp', GRP_POST], ['board', board.slug]], { ...opts, maxRows: SCAN_ROWS })
+  return parseRepliesFor(rows, board)
+}
+
 /** Drop records whose expiry block has passed, when the block height is known. */
 export function dropExpired<T extends { expiresAt?: number }>(records: T[], currentBlock?: number): T[] {
   if (currentBlock === undefined) return records
@@ -240,18 +247,76 @@ export function dropExpired<T extends { expiresAt?: number }>(records: T[], curr
 }
 
 export async function loadIndex(store: EntityStore, board: ResolvedBoard, currentBlock?: number): Promise<BoardIndex> {
-  const [rootsRaw, repliesRaw] = await Promise.all([loadRoots(store, board.ref), loadReplies(store, board.ref)])
-  const roots = dropExpired(rootsRaw, currentBlock)
-  const replies = dropExpired(repliesRaw, currentBlock)
+  const [rootsRes, repliesRes] = await Promise.all([
+    queryRoots(store, { maxRows: SCAN_ROWS }),
+    queryAllCounted(store, [['grp', GRP_POST], ['board', board.ref.slug]], { maxRows: SCAN_ROWS }),
+  ])
+  const roots = dropExpired(parseRoots(rootsRes.rows, board.ref), currentBlock)
+  const replies = dropExpired(parseRepliesFor(repliesRes.rows, board.ref), currentBlock)
   const folded = bumpOrder(roots, replies, { bumpLimit: board.bumpLimit, capacity: board.capacity })
+  const truncated = rootsRes.truncated || repliesRes.truncated
   return {
     board,
     folded,
     threads: new Map(roots.map((t) => [t.key, t])),
     posts: new Map(replies.map((p) => [p.key, p])),
-    ...(roots.length >= SCAN_ROWS || replies.length >= SCAN_ROWS ? { truncated: true } : {}),
+    ...(truncated ? { truncated: true } : {}),
+    ...(rootsRes.cursor ? { cursor: rootsRes.cursor } : {}),
+    ...(repliesRes.cursor ? { postCursor: repliesRes.cursor } : {}),
     ...(currentBlock !== undefined ? { currentBlock } : {}),
   }
+}
+
+function refoldBoard(index: BoardIndex, threads: Map<string, ThreadRecord>, posts: Map<string, PostRecord>, extra: Partial<BoardIndex> = {}): BoardIndex {
+  const liveThreads = dropExpired([...threads.values()], index.currentBlock)
+  const liveSet = new Set(liveThreads.map((x) => x.key))
+  const livePosts = dropExpired([...posts.values()], index.currentBlock).filter((x) => liveSet.has(x.rootRef))
+  return { ...index, ...extra, threads: new Map(liveThreads.map((x) => [x.key, x])), posts: new Map(livePosts.map((x) => [x.key, x])), folded: bumpOrder(liveThreads, livePosts, { bumpLimit: index.board.bumpLimit, capacity: index.board.capacity }) }
+}
+
+/** Fetch the next scan window (roots + replies) and fold it in. No-op when not truncated. */
+export async function loadIndexMore(store: EntityStore, index: BoardIndex): Promise<BoardIndex> {
+  if (!index.truncated) return index
+  const [rootsRes, repliesRes] = await Promise.all([
+    index.cursor ? queryRoots(store, { maxRows: SCAN_ROWS, cursor: index.cursor }) : Promise.resolve(undefined),
+    index.postCursor ? queryAllCounted(store, [['grp', GRP_POST], ['board', index.board.ref.slug]], { maxRows: SCAN_ROWS, cursor: index.postCursor }) : Promise.resolve(undefined),
+  ])
+  const threads = new Map(index.threads)
+  for (const r of rootsRes ? parseRoots(rootsRes.rows, index.board.ref) : []) threads.set(r.key, r)
+  const posts = new Map(index.posts)
+  for (const r of repliesRes ? parseRepliesFor(repliesRes.rows, index.board.ref) : []) posts.set(r.key, r)
+  const truncated = Boolean(rootsRes?.truncated || repliesRes?.truncated)
+  const out = refoldBoard(index, threads, posts)
+  delete out.truncated; delete out.cursor; delete out.postCursor
+  if (truncated) out.truncated = true
+  if (rootsRes?.cursor) out.cursor = rootsRes.cursor
+  if (repliesRes?.cursor) out.postCursor = repliesRes.cursor
+  return out
+}
+
+/** Incremental subscription update: insert/replace one raw entity, refold. Returns the same index when irrelevant. */
+export function applyEntityToBoardIndex(index: BoardIndex, raw: RawEntity): BoardIndex {
+  const rec = parseEntity(raw, { board: index.board.ref })
+  if (!rec) return index
+  const threads = new Map(index.threads)
+  const posts = new Map(index.posts)
+  if (rec.kind === 'thread') {
+    if (rec.source === 'board' && rec.board !== index.board.ref.slug) return index
+    if (!sameGate(rec.gate, index.board.ref.gate)) return index
+    threads.set(rec.key, rec)
+  } else if (rec.kind === 'post') {
+    if (rec.board !== index.board.ref.slug || !sameGate(rec.gate, index.board.ref.gate)) return index
+    posts.set(rec.key, rec)
+  } else return index
+  return refoldBoard(index, threads, posts)
+}
+
+export function removeEntityFromBoardIndex(index: BoardIndex, key: string): BoardIndex {
+  const k = key.toLowerCase()
+  if (!index.threads.has(k) && !index.posts.has(k)) return index
+  const threads = new Map(index.threads); threads.delete(k)
+  const posts = new Map(index.posts); posts.delete(k)
+  return refoldBoard(index, threads, posts)
 }
 
 export interface IndexPageItem {
@@ -352,6 +417,10 @@ export interface GlobalIndex {
   pageSize: number
   /** True when a scan hit `SCAN_ROWS` and older rows were not read. */
   truncated?: boolean
+  cursor?: string
+  postCursor?: string
+  bumpLimit?: number
+  capacity?: number
   currentBlock?: number
 }
 
@@ -365,53 +434,36 @@ export interface GlobalIndexOptions {
 
 export const GLOBAL_CAPACITY = 300
 
-/**
- * Every thread on the network: Fairhaven threads on any board plus every
- * Haven media record that carries a gate, with replies attached to their
- * roots. A reader who holds nothing sees a frosted network; a reader who
- * holds some gates sees those threads open. Posting still happens on a
- * board, never "globally".
- */
-export async function loadGlobalIndex(store: EntityStore, opts: GlobalIndexOptions = {}): Promise<GlobalIndex> {
-  const defs = await loadBoards(store)
-  const defByGate = new Map(defs.map((d) => [gateKey(d.gate), d]))
-  const boards = new Map<string, ResolvedBoard>()
-  const boardFor = (g: BoardGate): ResolvedBoard => {
-    const k = gateKey(g)
-    let b = boards.get(k)
-    if (!b) {
-      b = resolveFrom(defByGate.get(k), g)
-      boards.set(k, b)
+function globalBoardFor(index: { boards: Map<string, ResolvedBoard> }, g: BoardGate): ResolvedBoard {
+  const k = gateKey(g)
+  let b = index.boards.get(k)
+  if (!b) { b = resolveFrom(undefined, g); index.boards.set(k, b) }
+  return b
+}
+
+function refoldGlobal(index: GlobalIndex, threads: Map<string, ThreadRecord>, posts: Map<string, PostRecord>, extra: Partial<GlobalIndex> = {}): GlobalIndex {
+  const liveThreads = dropExpired([...threads.values()], index.currentBlock)
+  const liveSet = new Set(liveThreads.map((x) => x.key))
+  const livePosts = dropExpired([...posts.values()], index.currentBlock).filter((x) => liveSet.has(x.rootRef))
+  return { ...index, ...extra, threads: new Map(liveThreads.map((x) => [x.key, x])), posts: new Map(livePosts.map((x) => [x.key, x])), folded: bumpOrder(liveThreads, livePosts, { bumpLimit: index.bumpLimit ?? DEFAULT_BUMP_LIMIT, capacity: index.capacity ?? GLOBAL_CAPACITY }) }
+}
+
+function mergeGlobalRows(index: GlobalIndex, rootRows: RawEntity[], postRows: RawEntity[]): GlobalIndex {
+  const threads = new Map(index.threads)
+  const posts = new Map(index.posts)
+  for (const r of rootRows) {
+    const plain = parseEntity(r)
+    if (plain?.kind === 'thread') {
+      const b = globalBoardFor(index, plain.gate)
+      threads.set(plain.key, plain.board === b.ref.slug ? plain : { ...plain, board: b.ref.slug })
+      continue
     }
-    return b
-  }
-
-  // Bounded scan: 1 charged call per group (SCAN_ROWS), O(page) not O(network).
-  // Older rows beyond the cap are not folded; `truncated` surfaces that in UI.
-  const [ownRows, postRows, ...havenRows] = await Promise.all([
-    queryAll(store, [['grp', GRP_THREAD]], { maxRows: SCAN_ROWS }),
-    queryAll(store, [['grp', GRP_POST]], { maxRows: SCAN_ROWS }),
-    ...HAVEN_FULL_GROUPS.map((g) => queryAll(store, [['grp', g]], { maxRows: SCAN_ROWS })),
-  ])
-  const truncated = ownRows.length >= SCAN_ROWS || postRows.length >= SCAN_ROWS || havenRows.some((r) => r.length >= SCAN_ROWS)
-
-  const threads = new Map<string, ThreadRecord>()
-  for (const r of ownRows) {
-    const rec = parseEntity(r)
-    if (rec?.kind !== 'thread') continue
-    // Re-home onto the effective board for its gate (a thread may name a slug with no definition).
-    const b = boardFor(rec.gate)
-    threads.set(rec.key, rec.board === b.ref.slug ? rec : { ...rec, board: b.ref.slug })
-  }
-  for (const r of havenRows.flat()) {
     const gate = gateFromAttributes(r.attributes)
     if (!gate) continue
-    const b = boardFor(gate)
+    const b = globalBoardFor(index, gate)
     const rec = parseEntity(r, { board: b.ref })
     if (rec?.kind === 'thread' && !threads.has(rec.key)) threads.set(rec.key, rec)
   }
-
-  const posts = new Map<string, PostRecord>()
   for (const r of postRows) {
     const rec = parseEntity(r)
     if (rec?.kind !== 'post') continue
@@ -419,20 +471,57 @@ export async function loadGlobalIndex(store: EntityStore, opts: GlobalIndexOptio
     if (!root || !sameGate(rec.gate, root.gate)) continue
     posts.set(rec.key, rec)
   }
+  return refoldGlobal(index, threads, posts)
+}
 
-  const liveThreads = dropExpired([...threads.values()], opts.currentBlock)
-  const liveSet = new Set(liveThreads.map((t) => t.key))
-  const livePosts = dropExpired([...posts.values()], opts.currentBlock).filter((p) => liveSet.has(p.rootRef))
-  const folded = bumpOrder(liveThreads, livePosts, { bumpLimit: opts.bumpLimit ?? DEFAULT_BUMP_LIMIT, capacity: opts.capacity ?? GLOBAL_CAPACITY })
-  return {
-    folded,
-    threads: new Map(liveThreads.map((t) => [t.key, t])),
-    posts: new Map(livePosts.map((p) => [p.key, p])),
-    boards,
-    pageSize: opts.pageSize ?? DEFAULT_PAGE_SIZE,
-    ...(truncated ? { truncated: true } : {}),
-    ...(opts.currentBlock !== undefined ? { currentBlock: opts.currentBlock } : {}),
-  }
+/**
+ * Every thread on the network, in 3 charged calls: board defs, one OR-query
+ * over every root group, one posts query. Bounded at `SCAN_ROWS` per scan.
+ */
+export async function loadGlobalIndex(store: EntityStore, opts: GlobalIndexOptions = {}): Promise<GlobalIndex> {
+  const defs = await loadBoards(store)
+  const boards = new Map<string, ResolvedBoard>()
+  for (const d of defs) boards.set(gateKey(d.gate), resolveFrom(d, d.gate))
+  const base: GlobalIndex = { folded: [], threads: new Map(), posts: new Map(), boards, pageSize: opts.pageSize ?? DEFAULT_PAGE_SIZE, ...(opts.bumpLimit !== undefined ? { bumpLimit: opts.bumpLimit } : {}), ...(opts.capacity !== undefined ? { capacity: opts.capacity } : {}), ...(opts.currentBlock !== undefined ? { currentBlock: opts.currentBlock } : {}) }
+  const [rootsRes, postsRes] = await Promise.all([
+    queryRoots(store, { maxRows: SCAN_ROWS }),
+    queryAllCounted(store, [['grp', GRP_POST]], { maxRows: SCAN_ROWS }),
+  ])
+  const merged = mergeGlobalRows(base, rootsRes.rows, postsRes.rows)
+  const truncated = rootsRes.truncated || postsRes.truncated
+  return { ...merged, ...(truncated ? { truncated: true } : {}), ...(rootsRes.cursor ? { cursor: rootsRes.cursor } : {}), ...(postsRes.cursor ? { postCursor: postsRes.cursor } : {}) }
+}
+
+/** Fetch the next scan window and fold it in. No-op when not truncated. */
+export async function loadGlobalMore(store: EntityStore, index: GlobalIndex): Promise<GlobalIndex> {
+  if (!index.truncated) return index
+  const [rootsRes, postsRes] = await Promise.all([
+    index.cursor ? queryRoots(store, { maxRows: SCAN_ROWS, cursor: index.cursor }) : Promise.resolve(undefined),
+    index.postCursor ? queryAllCounted(store, [['grp', GRP_POST]], { maxRows: SCAN_ROWS, cursor: index.postCursor }) : Promise.resolve(undefined),
+  ])
+  const merged = mergeGlobalRows(index, rootsRes?.rows ?? [], postsRes?.rows ?? [])
+  const truncated = Boolean(rootsRes?.truncated || postsRes?.truncated)
+  const out: GlobalIndex = { ...merged }
+  delete out.truncated; delete out.cursor; delete out.postCursor
+  if (truncated) out.truncated = true
+  if (rootsRes?.cursor) out.cursor = rootsRes.cursor
+  if (postsRes?.cursor) out.postCursor = postsRes.cursor
+  return out
+}
+
+/** Incremental subscription update for the global feed. Same index when irrelevant. */
+export function applyEntityToGlobalIndex(index: GlobalIndex, raw: RawEntity): GlobalIndex {
+  const merged = mergeGlobalRows({ ...index, boards: new Map(index.boards) }, [raw], [raw])
+  // mergeGlobalRows treats the row as both root and post candidate; exactly one parses.
+  return merged.threads.get(raw.key.toLowerCase()) === index.threads.get(raw.key.toLowerCase()) && merged.posts.get(raw.key.toLowerCase()) === index.posts.get(raw.key.toLowerCase()) && merged.folded === index.folded ? index : merged
+}
+
+export function removeEntityFromGlobalIndex(index: GlobalIndex, key: string): GlobalIndex {
+  const k = key.toLowerCase()
+  if (!index.threads.has(k) && !index.posts.has(k)) return index
+  const threads = new Map(index.threads); threads.delete(k)
+  const posts = new Map(index.posts); posts.delete(k)
+  return refoldGlobal(index, threads, posts)
 }
 
 export function globalPage(index: GlobalIndex, page: number, tailN: number = INDEX_TAIL_REPLIES): { items: IndexPageItem[]; page: number; pages: number } {

@@ -155,7 +155,7 @@ async function liveStore(opts: BoardRuntimeOpts): Promise<EntityStore & { curren
   return {
     async query(where: WhereClause, q: QueryOptions = {}): Promise<QueryPage> {
       let b = client.select(selection(q.payload === true))
-      const clauses = where.map(([k, v]) => eq(k, v as never))
+      const clauses = where.map(([k, v]) => (Array.isArray(v) ? or(v.map((x) => eq(k, x as never))) : eq(k, v as never)))
       b = b.where(clauses.length === 1 ? clauses[0] : and(clauses))
       b = b.limit(q.limit ?? 100)
       if (q.cursor) b = b.cursor(q.cursor)

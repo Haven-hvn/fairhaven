@@ -22,7 +22,9 @@ export function usePrefetchMedia(thread: ThreadRecord, media: MediaField | undef
     const io = new IntersectionObserver(
       (entries) => {
         for (const e of entries) {
-          if (e.isIntersecting) prefetch(thread, media)
+          // Viewport prefetch only for sealed media the viewer already unlocked;
+          // clear media waits for hover intent (below) or an explicit click.
+          if (e.isIntersecting) { if (media.piece !== undefined) prefetch(thread, media) }
           else cancelIdle(media)
         }
       },

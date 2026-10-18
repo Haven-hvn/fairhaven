@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildDefWrite, buildPostWrite, buildThreadWrite } from '../src/codec.ts'
-import { RateLimitError, boardOf, globalPage, hydratePosts, hydrateThreads, indexPage, loadBoards, loadGlobalIndex, loadIndex, loadThread, parseGateSpec, resolveBoard, type EntityStore, type WhereClause } from '../src/service.ts'
+import { RateLimitError, applyEntityToGlobalIndex, boardOf, globalPage, hydratePosts, hydrateThreads, indexPage, loadBoards, loadGlobalIndex, loadGlobalMore, loadIndex, loadThread, parseGateSpec, removeEntityFromGlobalIndex, resolveBoard, type EntityStore, type WhereClause } from '../src/service.ts'
 import type { BoardGate, RawEntity } from '../src/types.ts'
 import { toRawEntity } from '../src/sdk.ts'
 
@@ -17,10 +17,13 @@ class MemStore implements EntityStore {
     this.rows.push({ key, owner: OWNER, createdAt, ...(expiresAt !== undefined ? { expiresAt } : {}), attributes, payload })
     return key
   }
-  async query(where: WhereClause, opts: { payload?: boolean; limit?: number } = {}) {
+  async query(where: WhereClause, opts: { payload?: boolean; limit?: number; cursor?: string } = {}) {
     this.queryCalls++
-    const hits = this.rows.filter((r) => where.every(([k, v]) => String(r.attributes[k]) === String(v)))
-    return { entities: hits.map((r) => (opts.payload ? r : { ...r, payload: undefined })) as RawEntity[] }
+    const hits = this.rows.filter((r) => where.every(([k, v]) => (Array.isArray(v) ? v.map(String).includes(String(r.attributes[k])) : String(r.attributes[k]) === String(v))))
+    const off = opts.cursor ? Number(opts.cursor) : 0
+    const lim = opts.limit ?? hits.length
+    const page = hits.slice(off, off + lim)
+    return { entities: page.map((r) => (opts.payload ? r : { ...r, payload: undefined })) as RawEntity[], ...(off + lim < hits.length ? { cursor: String(off + lim) } : {}) }
   }
   async get(key: string) {
     this.getCalls++
@@ -177,8 +180,22 @@ describe('service', () => {
       s.add(K(1000 + n), t.attributes, t.payload, 100 + n, 10_000)
     }
     const g = await loadGlobalIndex(s, { currentBlock: 1000 })
+    expect(s.queryCalls).toBe(3) // defs + one OR roots query + posts
     expect(g.truncated).toBe(true)
     expect(g.threads.size).toBeLessThanOrEqual(100)
+    const more = await loadGlobalMore(s, g)
+    expect(more.threads.size).toBe(150)
+    expect(more.truncated).toBeFalsy()
+  })
+
+  it('applies subscription upserts and removals to a global index without a reload', async () => {
+    const s = seed()
+    const g = await loadGlobalIndex(s, { currentBlock: 1000, pageSize: 10 })
+    const raw = s.rows.find((r) => r.key === K(3))!
+    const g2 = applyEntityToGlobalIndex(g, { ...raw, attributes: { ...raw.attributes, subject: 'renamed' } })
+    expect(g2.threads.get(K(3))?.subject).toBe('renamed')
+    expect(removeEntityFromGlobalIndex(g2, K(3)).threads.has(K(3))).toBe(false)
+    expect(removeEntityFromGlobalIndex(g2, K(999))).toBe(g2)
   })
 
   it('toRawEntity normalizes SDK rows', () => {
