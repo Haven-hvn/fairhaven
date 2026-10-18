@@ -12,6 +12,7 @@ import { PostForm } from '@/components/PostForm'
 import { OpView, ReplyView, type PostContext } from '@/components/Post'
 import { useShallow } from 'zustand/react/shallow'
 import { useSession } from '@/store/session'
+import { pendingProgressLabel } from '@/lib/post'
 import type { QuoteTarget } from '@/components/Body'
 import { ShareLink, threadPath } from '@/components/ShareLink'
 import { RateLimitNotice } from '@/components/RateLimitNotice'
@@ -94,7 +95,7 @@ function ThreadInner() {
           <div key={p.tempId}>
             <div className="reply pending">
               <div className="meta">
-                <span className="name">you</span> <span className="time">confirming on Arkiv…</span>
+                <span className="name">you</span> <span className="time">{pendingProgressLabel(p.stage)}</span>
               </div>
               <div className="body">{p.sealedText ? '🔒 (sealed)' : p.text}</div>
             </div>

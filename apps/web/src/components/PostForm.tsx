@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useAccount, useWalletClient } from 'wagmi'
 import { TEXT_MAX_BYTES, SUBJECT_MAX_BYTES, utf8Bytes, type ResolvedBoard, type ThreadRecord } from '@fairhaven/board-core'
 import { useMyMembership } from '@/hooks/useBoard'
-import { submitReply, submitThread, type WriteProgress } from '@/lib/post'
+import { submitReply, submitThread, writeProgressLabel, type WriteProgress } from '@/lib/post'
 import { useSession } from '@/store/session'
 
 export interface PostFormProps {
@@ -23,6 +23,7 @@ export function PostForm({ board, root, currentBlock, quote, onQuoteConsumed, on
   const { data: wc } = useWalletClient()
   const me = useMyMembership(board.ref.gate)
   const addPending = useSession((s) => s.addPending)
+  const setPendingStage = useSession((s) => s.setPendingStage)
   const resolvePending = useSession((s) => s.resolvePending)
   const failPending = useSession((s) => s.failPending)
 
@@ -54,10 +55,14 @@ export function PostForm({ board, root, currentBlock, quote, onQuoteConsumed, on
     setError(null)
     const tempId = crypto.randomUUID()
     addPending({ tempId, board: board.ref.slug, ...(root ? { root: root.key } : {}), ...(subject ? { subject } : {}), text, sealedText: sealText, createdAtMs: Date.now() })
+    const onProgress = (p: WriteProgress) => {
+      setProgress(p)
+      setPendingStage(tempId, p.stage)
+    }
     try {
       const res = isReply
-        ? await submitReply({ wallet: wc as never, board, root: root!, ...(parentKey ? { parentKey } : {}), text, sealText, noBump, ...(currentBlock !== undefined ? { currentBlock } : {}), onProgress: setProgress })
-        : await submitThread({ wallet: wc as never, board, subject, text, sealText, ...(file ? { file } : {}), sealMedia, onProgress: setProgress })
+        ? await submitReply({ wallet: wc as never, board, root: root!, ...(parentKey ? { parentKey } : {}), text, sealText, noBump, ...(currentBlock !== undefined ? { currentBlock } : {}), onProgress })
+        : await submitThread({ wallet: wc as never, board, subject, text, sealText, ...(file ? { file } : {}), sealMedia, onProgress })
       resolvePending(tempId, res.key)
       setText('')
       setSubject('')
@@ -148,7 +153,7 @@ export function PostForm({ board, root, currentBlock, quote, onQuoteConsumed, on
           <td>
             {exposure}
             <button onClick={submit} disabled={!canPost}>
-              {progress ? (progress.stage === 'sealing' ? 'Sealing…' : progress.stage === 'pinning' ? `Pinning… ${progress.uploaded && progress.total ? Math.round((progress.uploaded / progress.total) * 100) : 0}%` : progress.stage === 'indexing' ? 'Confirm in wallet…' : 'Done') : isReply ? 'Reply' : 'Post'}
+              {progress ? writeProgressLabel(progress) : isReply ? 'Reply' : 'Post'}
             </button>
             {!isConnected && <span className="muted"> connect a wallet to post</span>}
             {isConnected && me.data && !me.data.member && <span className="muted"> you do not hold the gate token</span>}

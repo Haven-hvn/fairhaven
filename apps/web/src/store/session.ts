@@ -13,6 +13,8 @@ export interface PendingPost {
   subject?: string
   text: string
   sealedText: boolean
+  /** Current write stage (see `lib/post` `WriteProgress`); absent = just started. */
+  stage?: string
   createdAtMs: number
   key?: string
   error?: string
@@ -26,6 +28,7 @@ interface SessionState {
   bumpUnlock(): void
   pending: PendingPost[]
   addPending(p: PendingPost): void
+  setPendingStage(tempId: string, stage: string): void
   resolvePending(tempId: string, key: string): void
   failPending(tempId: string, error: string): void
   dropPending(tempId: string): void
@@ -40,6 +43,7 @@ export const useSession = create<SessionState>()(
       bumpUnlock: () => set((s) => ({ unlockVersion: s.unlockVersion + 1 })),
       pending: [],
       addPending: (p) => set((s) => ({ pending: [...s.pending, p] })),
+      setPendingStage: (tempId, stage) => set((s) => ({ pending: s.pending.map((p) => (p.tempId === tempId ? { ...p, stage } : p)) })),
       resolvePending: (tempId, key) => set((s) => ({ pending: s.pending.map((p) => (p.tempId === tempId ? { ...p, key } : p)) })),
       failPending: (tempId, error) => set((s) => ({ pending: s.pending.map((p) => (p.tempId === tempId ? { ...p, error } : p)) })),
       dropPending: (tempId) => set((s) => ({ pending: s.pending.filter((p) => p.tempId !== tempId) })),

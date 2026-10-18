@@ -31,48 +31,126 @@ export interface BrowserWallet {
 }
 
 export interface WriteProgress {
-  stage: 'sealing' | 'pinning' | 'indexing' | 'done'
+  stage: 'preparing' | 'sealing' | 'pinning' | 'switching' | 'signing' | 'done'
   uploaded?: number
   total?: number
 }
 
 export type ProgressFn = (p: WriteProgress) => void
 
+/** Button label for a write in flight. Each label names the actual step. */
+export function writeProgressLabel(p: WriteProgress): string {
+  switch (p.stage) {
+    case 'preparing':
+      return 'Preparing…'
+    case 'sealing':
+      return 'Sealing (encrypting)…'
+    case 'pinning':
+      return `Pinning… ${p.uploaded && p.total ? Math.round((p.uploaded / p.total) * 100) : 0}%`
+    case 'switching':
+      return 'Switch to Arkiv in wallet…'
+    case 'signing':
+      return 'Confirm in wallet…'
+    case 'done':
+      return 'Done'
+  }
+}
+
+/**
+ * Label for the optimistic preview of a write that has not landed yet.
+ * Nothing here is on Arkiv until `submit*` resolves, so say so.
+ */
+export function pendingProgressLabel(stage: string | undefined): string {
+  switch (stage) {
+    case 'sealing':
+      return 'not posted yet — sealing (encrypting)…'
+    case 'pinning':
+      return 'not posted yet — pinning media…'
+    case 'switching':
+      return 'not posted yet — switch to Arkiv in your wallet…'
+    case 'signing':
+      return 'not posted yet — confirm in your wallet…'
+    case 'done':
+      return 'confirming on Arkiv…'
+    default:
+      return 'not posted yet — preparing…'
+  }
+}
+
 function toBlocks(expiresInS: number): number {
   return Math.max(1, Math.floor(expiresInS / 2))
 }
 
-async function arkivWallet(wallet: BrowserWallet) {
-  const { createWalletClient, custom } = await import('viem')
+/** Reject if the wallet never answers, instead of sitting on a stale stage forever. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function withWalletTimeout<T>(p: Promise<T>, what: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([
+      p,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`timed out waiting for the wallet to ${what} — check your wallet and try again`)), 60_000)
+      }),
+    ])
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
+
+async function arkivWallet(wallet: BrowserWallet, onProgress?: ProgressFn) {
+  const { custom } = await import('viem')
   const chains = await import('@arkiv-network/sdk/chains')
-  const { ExpirationTime } = await import('@arkiv-network/sdk')
+  // NOTE: the Arkiv-extended client factory, not viem's. A plain viem wallet
+  // client has no `createEntity`/`deleteEntity`, so no Arkiv tx (and no
+  // signing prompt) would ever happen.
+  const { createWalletClient, ExpirationTime } = await import('@arkiv-network/sdk')
   const local = env.arkivRpcUrl.includes('localhost') || env.arkivRpcUrl.includes('127.0.0.1')
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const chain = ((local ? (chains as any).localhost : (chains as any).tiramisu) ?? (chains as any).tiramisu) as { id: number }
+  const chain = ((local ? (chains as any).localhost : (chains as any).tiramisu) ?? (chains as any).tiramisu) as any
   const address = wallet.account.address as `0x${string}`
-  // Sign through the connected wallet's own provider (works for injected and
-  // WalletConnect alike); the chain id on the tx is Arkiv's, so ask the
-  // wallet to switch first — rejection surfaces as a clear wallet error.
-  try {
-    await wallet.switchChain?.({ id: chain.id })
-  } catch {
-    /* the send below surfaces a clear chain error */
-  }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const provider = ((wallet.transport as any)?.value ?? (typeof window !== 'undefined' ? (window as any).ethereum : undefined)) as any
   if (!provider?.request) throw new Error('wallet provider not available for signing')
-  const client = createWalletClient({ account: address, chain: chain as never, transport: custom(provider) } as never)
+  // Sign through the connected wallet's own provider (works for injected and
+  // WalletConnect alike). The tx is on Arkiv's chain, so ask the wallet to
+  // switch (adding the chain first when the wallet does not know it). A
+  // refusal or silence is fatal here: carrying on would read block height
+  // from the wrong chain and never prompt for the Arkiv entity.
+  onProgress?.({ stage: 'switching' })
+  const chainIdHex = `0x${Number(chain.id).toString(16)}`
+  try {
+    await withWalletTimeout(provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: chainIdHex }] }), 'switch to the Arkiv chain')
+  } catch (e) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const code = (e as any)?.code
+    if (code !== 4902) throw new Error(`wallet did not switch to the Arkiv chain: ${e instanceof Error ? e.message : String(e)}`)
+    try {
+      await withWalletTimeout(
+        provider.request({
+          method: 'wallet_addEthereumChain',
+          params: [{ chainId: chainIdHex, chainName: String(chain.name ?? 'Arkiv'), rpcUrls: [env.arkivRpcUrl], nativeCurrency: chain.nativeCurrency }],
+        }),
+        'add the Arkiv chain',
+      )
+      await withWalletTimeout(provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: chainIdHex }] }), 'switch to the Arkiv chain')
+    } catch (addErr) {
+      throw new Error(`wallet did not switch to the Arkiv chain: ${addErr instanceof Error ? addErr.message : String(addErr)}`)
+    }
+  }
+  const client = createWalletClient({ account: address, chain, transport: custom(provider) } as never)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  if (typeof (client as any).createEntity !== 'function') throw new Error('Arkiv wallet client unavailable (createEntity missing)')
   return { client, ExpirationTime }
 }
 
 async function sendWrite(wallet: BrowserWallet, w: EntityWrite, onProgress?: ProgressFn): Promise<{ key: string; txHash: string }> {
-  const { client, ExpirationTime } = await arkivWallet(wallet)
+  const { client, ExpirationTime } = await arkivWallet(wallet, onProgress)
   const { i32, str, u256 } = await import('@arkiv-network/sdk/attr')
   const attributes: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(w.attributes)) {
     attributes[k] = typeof v === 'bigint' ? u256(v) : typeof v === 'number' ? i32(v) : str(v)
   }
-  onProgress?.({ stage: 'indexing' })
+  onProgress?.({ stage: 'signing' })
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const res = await (client as any).createEntity({
     payload: w.payload,
@@ -111,7 +189,8 @@ export async function submitThread(a: SubmitThreadArgs): Promise<{ key: string; 
   const epoch = currentEpoch()
   const fileBytes = a.file ? new Uint8Array(await a.file.arrayBuffer()) : undefined
   if (fileBytes && fileBytes.length > 25 * 1024 * 1024) throw new Error('file is over the 25 MB limit')
-  a.onProgress?.({ stage: 'sealing' })
+  // Only call it sealing when something is actually being encrypted.
+  a.onProgress?.({ stage: a.sealText || (fileBytes && a.sealMedia) ? 'sealing' : 'preparing' })
   const sealed = await sealPostParts(a.board.ref.gate, a.text, a.sealText, fileBytes, a.sealMedia, epoch)
   const payload: BoardPayload = { v: 1, text: sealed.textField, ...(sealed.gateJson ? { gate: sealed.gateJson } : {}) }
   if (fileBytes && a.file) {
@@ -146,7 +225,8 @@ export interface SubmitReplyArgs {
 
 export async function submitReply(a: SubmitReplyArgs): Promise<{ key: string; txHash: string }> {
   const epoch = currentEpoch()
-  a.onProgress?.({ stage: 'sealing' })
+  // Only call it sealing when something is actually being encrypted.
+  a.onProgress?.({ stage: a.sealText ? 'sealing' : 'preparing' })
   const sealed = await sealPostParts(a.board.ref.gate, a.text, a.sealText, undefined, false, epoch)
   const payload: BoardPayload = { v: 1, text: sealed.textField, ...(sealed.gateJson ? { gate: sealed.gateJson } : {}) }
   const parent = a.parentKey && a.parentKey.toLowerCase() !== a.root.key ? a.parentKey.toLowerCase() : undefined

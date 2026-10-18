@@ -11,6 +11,7 @@ import { useHidden } from '@/hooks/useHidden'
 import { OpView, ReplyView, type PostContext } from '@/components/Post'
 import { useShallow } from 'zustand/react/shallow'
 import { useSession } from '@/store/session'
+import { pendingProgressLabel } from '@/lib/post'
 
 /**
  * The front page: every thread on the network in one bump order, across all
@@ -72,7 +73,7 @@ function FeedInner() {
         <div key={p.tempId} className="thread">
           <div className="op reply pending" style={{ display: 'block', margin: 0 }}>
             <div className="meta">
-              <span className="subject">{p.subject}</span> <span className="time">confirming on Arkiv…</span>
+              <span className="subject">{p.subject}</span> <span className="time">{pendingProgressLabel(p.stage)}</span>
             </div>
             <div className="body">{p.sealedText ? '🔒 (sealed)' : p.text}</div>
           </div>

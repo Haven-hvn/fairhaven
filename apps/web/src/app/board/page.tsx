@@ -13,6 +13,7 @@ import { Pager } from '@/components/Pager'
 import { OpView, ReplyView, type PostContext } from '@/components/Post'
 import { useShallow } from 'zustand/react/shallow'
 import { useSession } from '@/store/session'
+import { pendingProgressLabel } from '@/lib/post'
 import { blurhashDataUrl, mimeLabel } from '@/lib/media'
 import { ShareLink } from '@/components/ShareLink'
 import { RateLimitNotice } from '@/components/RateLimitNotice'
@@ -76,7 +77,7 @@ function BoardInner() {
         <div key={p.tempId} className="thread">
           <div className="op reply pending" style={{ display: 'block', margin: 0 }}>
             <div className="meta">
-              <span className="subject">{p.subject}</span> <span className="time">confirming on Arkiv…</span>
+              <span className="subject">{p.subject}</span> <span className="time">{pendingProgressLabel(p.stage)}</span>
             </div>
             <div className="body">{p.sealedText ? '🔒 (sealed)' : p.text}</div>
           </div>
