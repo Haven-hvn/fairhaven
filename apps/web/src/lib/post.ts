@@ -306,6 +306,7 @@ export interface SubmitBoardDefArgs {
   threadTtlS: number
   postTtlS: number
   expiresIn: number
+  onProgress?: ProgressFn
 }
 
 export async function submitBoardDef(a: SubmitBoardDefArgs): Promise<{ key: string; txHash: string }> {
@@ -321,7 +322,7 @@ export async function submitBoardDef(a: SubmitBoardDefArgs): Promise<{ key: stri
     ttl: { thread_s: a.threadTtlS, post_s: a.postTtlS },
     expiresIn: a.expiresIn,
   })
-  return sendWrite(a.wallet as BrowserWallet, w)
+  return sendWrite(a.wallet as BrowserWallet, w, a.onProgress)
 }
 
 /** Owner-only delete (Arkiv DELETE by the record owner). */

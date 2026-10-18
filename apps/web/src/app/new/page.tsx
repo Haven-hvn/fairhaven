@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAccount, useWalletClient } from 'wagmi'
 import { useQuery } from '@tanstack/react-query'
 import { CHAIN_VARIANTS, CHAIN_LABEL, VARIANT_TO_EIP155, isBoardSlug, type BoardGate, type ChainVariant } from '@fairhaven/board-core'
-import { submitBoardDef } from '@/lib/post'
+import { submitBoardDef, writeProgressLabel, type WriteProgress } from '@/lib/post'
 import { membership } from '@/lib/evm'
 
 const DAY = 86400
@@ -29,6 +29,7 @@ export default function NewBoardPage() {
   const [postDays, setPostDays] = useState('7')
   const [boardDays, setBoardDays] = useState('30')
   const [busy, setBusy] = useState(false)
+  const [progress, setProgress] = useState<WriteProgress | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const gate: BoardGate | undefined = /^0x[0-9a-fA-F]{40}$/.test(token) && /^\d+$/.test(threshold) && BigInt(threshold) > 0n ? { chain, tokenAddress: token.toLowerCase(), threshold: BigInt(threshold) } : undefined
@@ -58,12 +59,14 @@ export default function NewBoardPage() {
         threadTtlS: Number(threadDays) * DAY,
         postTtlS: Number(postDays) * DAY,
         expiresIn: Number(boardDays) * DAY,
+        onProgress: setProgress,
       })
       router.push(`/board?b=${encodeURIComponent(slug)}`)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
       setBusy(false)
+      setProgress(null)
     }
   }
 
@@ -145,7 +148,7 @@ export default function NewBoardPage() {
             <td></td>
             <td>
               <button disabled={!ok} onClick={submit}>
-                {busy ? 'Confirm in wallet…' : 'Create board'}
+                {progress ? writeProgressLabel(progress) : busy ? 'Preparing…' : 'Create board'}
               </button>
               {!isConnected && <span className="muted"> connect a wallet</span>}
               {gate && holds.data !== undefined && holds.data < gate.threshold && <span className="muted"> you do not hold the gate token</span>}
