@@ -86,6 +86,7 @@ describe('service', () => {
     expect(byGate?.ref.slug).toBe('conf.back')
     const unknownGate = await resolveBoard(s, `gate:8453:${'0xcd'.padEnd(42, 'c')}:3`)
     expect(unknownGate?.ref.slug).toBe(`g.8453.cd${'c'.repeat(10)}`)
+    expect((await resolveBoard(s, 'g.8453.abababababab'))?.ref.slug).toBe('conf.back') // implicit slug of a defined gate
     expect(await resolveBoard(s, 'no.such')).toBeUndefined()
     expect(parseGateSpec('gate:999:0x00:1')).toBeUndefined()
   })

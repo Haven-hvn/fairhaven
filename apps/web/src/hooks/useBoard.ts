@@ -9,8 +9,11 @@ import {
   boardOf,
   currentEpoch,
   globalPage,
+  gateOfRaw,
+  gateSpecOf,
   hydratePosts,
   hydrateThreads,
+  implicitSlug,
   indexPage,
   loadBoards,
   loadGlobalIndex,
@@ -128,7 +131,7 @@ export function useResolvedBoard(slugOrGate: string | null) {
       const cached = qc.getQueryData<BoardDef[]>(['boards'])
       if (cached) {
         const gate = parseGateSpec(slugOrGate)
-        const def = gate ? cached.find((b) => sameGate(b.gate, gate)) : cached.find((b) => b.board === slugOrGate)
+        const def = gate ? cached.find((b) => sameGate(b.gate, gate)) : (cached.find((b) => b.board === slugOrGate) ?? cached.find((b) => implicitSlug(b.gate) === slugOrGate))
         if (def) return resolveFrom(def, def.gate)
         if (gate) return resolveFrom(undefined, gate)
         return null
@@ -136,6 +139,27 @@ export function useResolvedBoard(slugOrGate: string | null) {
       return (await resolveBoard(arkivStore, slugOrGate)) ?? null
     },
     enabled: !!slugOrGate,
+    staleTime: 60_000,
+  })
+}
+
+/** Legacy implicit slugs carry no threshold/token suffix, so a def-less board cannot be resolved from the slug alone. Recover the gate from the thread root entity itself (one batched read), then resolve against defs by gate. */
+export function useBoardFromRoot(rootKey: string | null, enabled: boolean) {
+  const qc = useQueryClient()
+  return useQuery({
+    queryKey: ['board-from-root', rootKey],
+    queryFn: async () => {
+      if (!rootKey) return null
+      const raw = (await arkivStore.getMany?.([rootKey]))?.[0]
+      const gate = raw ? gateOfRaw(raw) : undefined
+      if (!gate) return null
+      const cached = qc.getQueryData<BoardDef[]>(['boards'])
+      const def = cached?.find((b) => sameGate(b.gate, gate))
+      if (def) return resolveFrom(def, def.gate)
+      const boards = await loadBoards(arkivStore).catch(() => undefined)
+      return resolveFrom(boards?.find((b) => sameGate(b.gate, gate)), gate)
+    },
+    enabled: enabled && !!rootKey,
     staleTime: 60_000,
   })
 }

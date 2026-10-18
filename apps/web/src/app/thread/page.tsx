@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import { backlinks, blockToUnix, shortAddress } from '@fairhaven/board-core'
-import { useResolvedBoard, useThread, useCurrentBlock } from '@/hooks/useBoard'
+import { useBoardFromRoot, useResolvedBoard, useThread, useCurrentBlock } from '@/hooks/useBoard'
 import { useHidden } from '@/hooks/useHidden'
 import { GateCard } from '@/components/GateCard'
 import { PostForm } from '@/components/PostForm'
@@ -31,7 +31,8 @@ function ThreadInner() {
   const slug = params.get('b')
   const key = params.get('k')
   const board = useResolvedBoard(slug)
-  const thread = useThread(board.data, key)
+  const fallback = useBoardFromRoot(key, !board.isLoading && !board.isError && board.data === null)
+  const thread = useThread(board.data ?? fallback.data, key)
   const block = useCurrentBlock()
   const [quote, setQuote] = useState<string | null>(null)
   const pending = useSession(useShallow((s) => s.pending.filter((p) => p.root === key?.toLowerCase() && !p.key && !p.error)))
@@ -40,14 +41,14 @@ function ThreadInner() {
   if (!slug || !key) return <div className="notice">No thread given.</div>
   if (board.isError) return <RateLimitNotice error={board.error} />
   if (thread.isError) return <RateLimitNotice error={thread.error} />
-  if (board.isLoading || thread.isLoading) return <div className="muted">Loading thread…</div>
-  if (!board.data) return <div className="notice"><h1>Unknown board</h1></div>
+  if (board.isLoading || fallback.isLoading || thread.isLoading) return <div className="muted">Loading thread…</div>
+  if (!board.data && !fallback.data) return <div className="notice"><h1>Unknown board</h1></div>
   if (thread.data === null || (thread.data && thread.data.rootHidden)) {
     router.replace('/expired')
     return null
   }
   if (!thread.data) return null
-  const b = board.data
+  const b = (board.data ?? fallback.data)!
   const t = thread.data
 
   const observed = Math.floor(Date.now() / 1000)

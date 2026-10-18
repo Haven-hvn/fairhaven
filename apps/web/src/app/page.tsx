@@ -4,7 +4,7 @@ import { Suspense, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
-import { backlinks, blockToUnix, gateKey, type IndexPageItem, type ResolvedBoard } from '@fairhaven/board-core'
+import { backlinks, blockToUnix, gateKey, gateSpecOf, type IndexPageItem, type ResolvedBoard } from '@fairhaven/board-core'
 import { useGlobalFeed } from '@/hooks/useBoard'
 import { RateLimitNotice } from '@/components/RateLimitNotice'
 import { useHidden } from '@/hooks/useHidden'
@@ -107,13 +107,15 @@ function FeedThread({
   onDeleted: () => void
 }) {
   const slug = board?.ref.slug ?? item.thread.board
+  // Def-less boards get an implicit slug that cannot be resolved alone; link by gate spec instead.
+  const bParam = board && !board.def ? gateSpecOf(board.ref.gate) : slug
   const keys = useMemo(() => [item.thread.key, ...item.tail.map((t) => t.key)], [item])
   const bl = useMemo(() => backlinks(item.tail.map((t) => ({ key: t.key, ...(t.parentRef ? { parentRef: t.parentRef } : {}), ...(t.payload && 'clear' in t.payload.text ? { text: t.payload.text.clear } : {}) }))), [item])
-  const ctx: PostContext = { board: slug, gate: item.thread.gate, knownKeys: keys, backlinks: bl, blockToDate, hidden, showStubs, onReplyTo: (k) => onReplyTo(slug, k), onDeleted }
+  const ctx: PostContext = { board: bParam, gate: item.thread.gate, knownKeys: keys, backlinks: bl, blockToDate, hidden, showStubs, onReplyTo: (k) => onReplyTo(bParam, k), onDeleted }
   return (
     <div className="thread">
       <div className="muted" style={{ fontSize: 11 }}>
-        <Link href={`/board?b=${encodeURIComponent(slug)}`}>/{slug}/</Link>
+        <Link href={`/board?b=${encodeURIComponent(bParam)}`}>/{slug}/</Link>
         {board?.title && board.title !== slug ? ` · ${board.title}` : ''}
       </div>
       <OpView thread={item.thread} ctx={ctx} onIndex />

@@ -86,8 +86,8 @@ function BoardInner() {
       {(index.error || pg.error) && <RateLimitNotice error={index.error ?? pg.error} />}
       {pg.data?.truncated && <div className="notice">Showing the most recent scan window. <button onClick={() => void loadMore()}>Load older threads</button></div>}
       {pg.data && pg.data.items.length === 0 && pending.length === 0 && <div className="notice">Nothing here yet.</div>}
-      {pg.data && view === 'index' && <IndexList items={pg.data.items} board={b.ref.slug} ctx={{ board: b.ref.slug, gate: b.ref.gate, knownKeys: [], blockToDate, hidden, showStubs, onReplyTo: (k) => router.push(`/thread?b=${encodeURIComponent(b.ref.slug)}&k=${k}`), onDeleted: refresh }} />}
-      {pg.data && view === 'catalog' && <Catalog items={pg.data.items.filter((i) => !hidden.has(i.thread.key))} board={b.ref.slug} />}
+      {pg.data && view === 'index' && <IndexList items={pg.data.items} board={slug} ctx={{ board: slug, gate: b.ref.gate, knownKeys: [], blockToDate, hidden, showStubs, onReplyTo: (k) => router.push(`/thread?b=${encodeURIComponent(b.ref.slug)}&k=${k}`), onDeleted: refresh }} />}
+      {pg.data && view === 'catalog' && <Catalog items={pg.data.items.filter((i) => !hidden.has(i.thread.key))} board={slug} />}
       <hr />
       <Pager board={slug} page={pg.data?.page ?? page} pages={pg.data?.pages ?? 1} view={view} />
     </div>

@@ -159,7 +159,8 @@ export async function resolveBoard(store: EntityStore, slugOrGate: string): Prom
   const gate = parseGateSpec(slugOrGate)
   let def: BoardDef | undefined
   if (gate) def = boards.find((b) => sameGate(b.gate, gate))
-  else def = boards.find((b) => b.board === slugOrGate)
+  // Implicit slugs (`g.<chainId>.<token prefix>`) name a defined board by its gate.
+  else def = boards.find((b) => b.board === slugOrGate) ?? boards.find((b) => implicitSlug(b.gate) === slugOrGate)
   if (!def && !gate) return undefined
   return resolveFrom(def, def?.gate ?? (gate as BoardGate))
 }
