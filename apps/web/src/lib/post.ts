@@ -108,8 +108,28 @@ async function arkivWallet(wallet: BrowserWallet, onProgress?: ProgressFn) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const chain = ((local ? (chains as any).localhost : (chains as any).tiramisu) ?? (chains as any).tiramisu) as any
   const address = wallet.account.address as `0x${string}`
+  // The EIP-1193 provider lives behind the wallet client's transport, but
+  // not at `.value`: viem's `custom()` transport carries no value, so that
+  // lookup only ever worked via an injected `window.ethereum` and failed
+  // outright for WalletConnect/AppKit wallets. Use the transport's own
+  // `request` (present on every wagmi wallet client), then fall back.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const provider = ((wallet.transport as any)?.value ?? (typeof window !== 'undefined' ? (window as any).ethereum : undefined)) as any
+  const transport = wallet.transport as any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const walletRequest = (wallet as any).request as unknown
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const provider: any =
+    transport?.value?.request
+      ? transport.value
+      : typeof transport?.request === 'function'
+        ? { request: transport.request.bind(transport) }
+        : typeof walletRequest === 'function'
+          ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            { request: (walletRequest as any).bind(wallet) }
+          : typeof window !== 'undefined'
+            ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              (window as any).ethereum
+            : undefined
   if (!provider?.request) throw new Error('wallet provider not available for signing')
   // Sign through the connected wallet's own provider (works for injected and
   // WalletConnect alike). The tx is on Arkiv's chain, so ask the wallet to

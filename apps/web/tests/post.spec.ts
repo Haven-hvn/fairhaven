@@ -86,29 +86,40 @@ describe('submitReply (public)', () => {
         }
       },
     }
-    const wallet = { account: { address: OWNER }, transport: { value: provider } } as unknown as BrowserWallet
     const gate = { chain: 'EthMainnet', tokenAddress: '0x5555555555555555555555555555555555555555', threshold: 1n } as const
-    const stages: WriteProgress['stage'][] = []
 
-    const res = await submitReply({
-      wallet,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      board: { ref: { slug: 'test.board', gate }, postTtlS: 3600 } as any,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      root: { kind: 'thread', key: `0x${'aa'.repeat(32)}`, owner: OWNER, board: 'test.board', subject: 'hi', gate } as any,
-      text: 'hello',
-      sealText: false,
-      noBump: false,
-      onProgress: (p) => stages.push(p.stage),
-    })
+    // Two wallet shapes: a raw provider at `transport.value`, and the real
+    // wagmi wallet-client shape — a resolved viem transport exposing only
+    // `request`, with no injected `window.ethereum` (WalletConnect/AppKit).
+    // The latter used to die with "wallet provider not available for signing".
+    const shapes: Array<[string, BrowserWallet]> = [
+      ['transport.value provider', { account: { address: OWNER }, transport: { value: provider } } as unknown as BrowserWallet],
+      ['transport.request only (wagmi)', { account: { address: OWNER }, transport: { request: provider.request } } as unknown as BrowserWallet],
+    ]
+    for (const [name, wallet] of shapes) {
+      methods.length = 0
+      sentTx = undefined
+      const stages: WriteProgress['stage'][] = []
+      const res = await submitReply({
+        wallet,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        board: { ref: { slug: 'test.board', gate }, postTtlS: 3600 } as any,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        root: { kind: 'thread', key: `0x${'aa'.repeat(32)}`, owner: OWNER, board: 'test.board', subject: 'hi', gate } as any,
+        text: 'hello',
+        sealText: false,
+        noBump: false,
+        onProgress: (p) => stages.push(p.stage),
+      })
 
-    expect(res).toEqual({ key: ENTITY_KEY, txHash: TX_HASH })
-    // The wallet was actually asked to switch and to send the Arkiv tx.
-    expect(methods).toContain('wallet_switchEthereumChain')
-    expect(methods).toContain('eth_sendTransaction')
-    expect(String(sentTx.to).toLowerCase()).toBe(ARKIV_ADDRESS)
-    // A public reply never seals, and every stage names its real step.
-    expect(stages).toEqual(['preparing', 'switching', 'signing', 'done'])
+      expect(res, name).toEqual({ key: ENTITY_KEY, txHash: TX_HASH })
+      // The wallet was actually asked to switch and to send the Arkiv tx.
+      expect(methods, name).toContain('wallet_switchEthereumChain')
+      expect(methods, name).toContain('eth_sendTransaction')
+      expect(String(sentTx.to).toLowerCase(), name).toBe(ARKIV_ADDRESS)
+      // A public reply never seals, and every stage names its real step.
+      expect(stages, name).toEqual(['preparing', 'switching', 'signing', 'done'])
+    }
     expect(writeProgressLabel({ stage: 'preparing' })).not.toMatch(/sealing/i)
     expect(pendingProgressLabel('signing')).toMatch(/confirm in your wallet/)
     expect(pendingProgressLabel(undefined)).toMatch(/not posted yet/)
