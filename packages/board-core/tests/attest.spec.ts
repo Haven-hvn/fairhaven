@@ -103,7 +103,7 @@ describe('verifyMemberReceipt', () => {
 
   it('rejects another gate, another epoch, and another canister key', () => {
     const r = c.mint(GATE, HOLDER, EPOCH, NOW - 100, '5')
-    expect(verifyMemberReceipt(r, { ...GATE, threshold: 2n }, HOLDER, c.pub, NOW)).toEqual({ ok: false, reason: 'balance' })
+    expect(verifyMemberReceipt(r, { ...GATE, threshold: 2n }, HOLDER, c.pub, NOW)).toEqual({ ok: false, reason: 'signature' })
     expect(verifyMemberReceipt(r, { ...GATE, tokenAddress: `0x${'33'.repeat(20)}` }, HOLDER, c.pub, NOW)).toEqual({ ok: false, reason: 'signature' })
     expect(verifyMemberReceipt({ ...r, epoch: EPOCH + 1 }, GATE, HOLDER, c.pub, NOW)).toEqual({ ok: false, reason: 'epoch' })
     expect(verifyMemberReceipt(r, GATE, HOLDER, canister().pub, NOW)).toEqual({ ok: false, reason: 'signature' })

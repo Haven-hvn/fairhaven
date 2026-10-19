@@ -341,7 +341,7 @@ describe('dsh-board runtime', () => {
     const denied = new BoardRuntime({ ...OPTS, postCostUsd: 50_000 }, { wallet: { address: async () => AGENT }, treasury })
     await expect(denied.postThread({ board: 'conf.back', subject: 's', text: 't', sealText: false })).rejects.toThrow(/treasury denied/)
 
-    const unfunded = new BoardRuntime({ ...OPTS, postCostUsd: 50_000 }, { wallet: { address: async () => AGENT }, treasury: { ...treasury, report: () => ({ balances: [] }) } })
+    const unfunded = new BoardRuntime({ ...OPTS, postCostUsd: 50_000 }, { wallet: { address: async () => AGENT, signDigest: async () => `0x${'1'.repeat(130)}` }, treasury: { ...treasury, report: () => ({ balances: [] }) } })
     await expect(unfunded.postThread({ board: 'conf.back', subject: 's', text: 't', sealText: false })).resolves.toBeTruthy()
   })
 

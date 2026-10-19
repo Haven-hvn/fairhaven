@@ -149,6 +149,9 @@ importers:
       '@deepseek-ai/dsh-tools':
         specifier: '=0.2.1-alpha.1'
         version: 0.2.1-alpha.1(@deepseek-ai/cordis@4.0.5)(@deepseek-ai/dsh-llm@0.2.1-alpha.1(@deepseek-ai/cordis@4.0.5))(@deepseek-ai/dsh-system-prompt@0.2.1-alpha.1(@deepseek-ai/cordis@4.0.5)(@deepseek-ai/dsh-llm@0.2.1-alpha.1(@deepseek-ai/cordis@4.0.5)))
+      '@noble/curves':
+        specifier: 2.4.0
+        version: 2.4.0
       tsdown:
         specifier: '=0.23.0'
         version: 0.23.0(typescript@7.0.2)

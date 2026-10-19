@@ -780,47 +780,51 @@ export class BoardRuntime {
   }
 
   async createBoard(a: { board: string; title: string; about?: string; gate: BoardGate; bumpLimit?: number; capacity?: number; pageSize?: number; sealText?: boolean; sealMedia?: boolean; threadTtlS?: number; postTtlS?: number; expiresIn?: number }) {
-    await this.receiptFor(a.gate) // proves membership; a def payload carries no attn
-    const w = buildDefWrite({
-      board: a.board,
-      title: a.title,
-      about: a.about ?? '',
-      gate: a.gate,
-      ...(a.bumpLimit !== undefined ? { bumpLimit: a.bumpLimit } : {}),
-      ...(a.capacity !== undefined ? { capacity: a.capacity } : {}),
-      ...(a.pageSize !== undefined ? { pageSize: a.pageSize } : {}),
-      defaults: { ...(a.sealText !== undefined ? { sealText: a.sealText } : {}), ...(a.sealMedia !== undefined ? { sealMedia: a.sealMedia } : {}) },
-      ttl: { ...(a.threadTtlS !== undefined ? { thread_s: a.threadTtlS } : {}), ...(a.postTtlS !== undefined ? { post_s: a.postTtlS } : {}) },
-      ...(a.expiresIn !== undefined ? { expiresIn: a.expiresIn } : {}),
+    return this.spend('create', async () => {
+      await this.receiptFor(a.gate) // proves membership; a def payload carries no attn
+      const w = buildDefWrite({
+        board: a.board,
+        title: a.title,
+        about: a.about ?? '',
+        gate: a.gate,
+        ...(a.bumpLimit !== undefined ? { bumpLimit: a.bumpLimit } : {}),
+        ...(a.capacity !== undefined ? { capacity: a.capacity } : {}),
+        ...(a.pageSize !== undefined ? { pageSize: a.pageSize } : {}),
+        defaults: { ...(a.sealText !== undefined ? { sealText: a.sealText } : {}), ...(a.sealMedia !== undefined ? { sealMedia: a.sealMedia } : {}) },
+        ttl: { ...(a.threadTtlS !== undefined ? { thread_s: a.threadTtlS } : {}), ...(a.postTtlS !== undefined ? { post_s: a.postTtlS } : {}) },
+        ...(a.expiresIn !== undefined ? { expiresIn: a.expiresIn } : {}),
+      })
+      return this.write(w)
     })
-    return this.spend('create', () => this.write(w))
   }
 
   async postThread(a: { board: string; subject: string; text: string; sealText?: boolean; media?: { bytes: Uint8Array; mime: string; name?: string }; sealMedia?: boolean }) {
     const board = await this.resolve(a.board)
-    const attn = await this.receiptFor(board.ref.gate)
-    const sealText = a.sealText ?? board.defaults.sealText
-    const sealMedia = a.sealMedia ?? board.defaults.sealMedia
-    const { gateJson, textField, mediaBytes, sha256Ct } = await this.sealFields(board.ref.gate, a.text, sealText, a.media?.bytes, sealMedia)
-    const payload: BoardPayload = { v: 1, text: textField, ...(gateJson ? { gate: gateJson } : {}), ...(attn ? { attn } : {}) }
-    if (a.media) {
-      const synapse = this.seams.synapse
-      if (!synapse) throw new Error('dsh-board: media given but ctx.synapse is not mounted — install dsh-storage-synapse or post text only')
-      const mime = MIME_TO_ENUM[a.media.mime]
-      if (mime === undefined) throw new Error(`dsh-board: unsupported media type ${a.media.mime} (shared Haven MIME enum)`)
-      const bytes = mediaBytes as Uint8Array
-      const { cid } = await synapse.store(bytes)
-      await synapse.pin?.(cid).catch(() => undefined)
-      payload.media = {
-        ...(sealMedia ? { piece: cid } : { fcid: cid }),
-        mime,
-        size: bytes.length,
-        ...(a.media.name ? { name: a.media.name } : {}),
-        sha256: await sha256Hex(bytes),
+    return this.spend('post', async () => {
+      const attn = await this.receiptFor(board.ref.gate)
+      const sealText = a.sealText ?? board.defaults.sealText
+      const sealMedia = a.sealMedia ?? board.defaults.sealMedia
+      const { gateJson, textField, mediaBytes, sha256Ct } = await this.sealFields(board.ref.gate, a.text, sealText, a.media?.bytes, sealMedia)
+      const payload: BoardPayload = { v: 1, text: textField, ...(gateJson ? { gate: gateJson } : {}), ...(attn ? { attn } : {}) }
+      if (a.media) {
+        const synapse = this.seams.synapse
+        if (!synapse) throw new Error('dsh-board: media given but ctx.synapse is not mounted — install dsh-storage-synapse or post text only')
+        const mime = MIME_TO_ENUM[a.media.mime]
+        if (mime === undefined) throw new Error(`dsh-board: unsupported media type ${a.media.mime} (shared Haven MIME enum)`)
+        const bytes = mediaBytes as Uint8Array
+        const { cid } = await synapse.store(bytes)
+        await synapse.pin?.(cid).catch(() => undefined)
+        payload.media = {
+          ...(sealMedia ? { piece: cid } : { fcid: cid }),
+          mime,
+          size: bytes.length,
+          ...(a.media.name ? { name: a.media.name } : {}),
+          sha256: await sha256Hex(bytes),
+        }
       }
-    }
-    const w = buildThreadWrite({ board: board.ref.slug, subject: a.subject, gate: board.ref.gate, payload, sha256Ct, expiresIn: board.threadTtlS })
-    return this.spend('post', () => this.write(w))
+      const w = buildThreadWrite({ board: board.ref.slug, subject: a.subject, gate: board.ref.gate, payload, sha256Ct, expiresIn: board.threadTtlS })
+      return this.write(w)
+    })
   }
 
   async reply(a: { board: string; root: string; text: string; parent?: string; noBump?: boolean; sealText?: boolean }) {
@@ -829,25 +833,27 @@ export class BoardRuntime {
     const current = await store.currentBlock()
     const loaded = await loadThread(store, board, a.root, current)
     if (!loaded) throw new Error(`dsh-board: root ${a.root} is not a live thread on ${board.ref.slug}`)
-    const attn = await this.receiptFor(board.ref.gate)
-    if (a.parent && a.parent.toLowerCase() !== loaded.root.key && !loaded.replies.some((r) => r.key === a.parent!.toLowerCase())) {
-      throw new Error(`dsh-board: parent ${a.parent} is not in this thread`)
-    }
-    const sealText = a.sealText ?? board.defaults.sealText
-    const { gateJson, textField, sha256Ct } = await this.sealFields(board.ref.gate, a.text, sealText, undefined, false)
-    const payload: BoardPayload = { v: 1, text: textField, ...(gateJson ? { gate: gateJson } : {}), ...(attn ? { attn } : {}) }
-    const rootRemaining = loaded.root.expiresAt !== undefined && current !== undefined ? (loaded.root.expiresAt - current) * 2 : undefined
-    const w = buildPostWrite({
-      board: board.ref.slug,
-      rootRef: loaded.root.key,
-      ...(a.parent && a.parent.toLowerCase() !== loaded.root.key ? { parentRef: a.parent.toLowerCase() } : {}),
-      noBump: a.noBump ?? false,
-      gate: board.ref.gate,
-      payload,
-      sha256Ct,
-      expiresIn: clampPostTtl(board.postTtlS, rootRemaining),
+    return this.spend('reply', async () => {
+      const attn = await this.receiptFor(board.ref.gate)
+      if (a.parent && a.parent.toLowerCase() !== loaded.root.key && !loaded.replies.some((r) => r.key === a.parent!.toLowerCase())) {
+        throw new Error(`dsh-board: parent ${a.parent} is not in this thread`)
+      }
+      const sealText = a.sealText ?? board.defaults.sealText
+      const { gateJson, textField, sha256Ct } = await this.sealFields(board.ref.gate, a.text, sealText, undefined, false)
+      const payload: BoardPayload = { v: 1, text: textField, ...(gateJson ? { gate: gateJson } : {}), ...(attn ? { attn } : {}) }
+      const rootRemaining = loaded.root.expiresAt !== undefined && current !== undefined ? (loaded.root.expiresAt - current) * 2 : undefined
+      const w = buildPostWrite({
+        board: board.ref.slug,
+        rootRef: loaded.root.key,
+        ...(a.parent && a.parent.toLowerCase() !== loaded.root.key ? { parentRef: a.parent.toLowerCase() } : {}),
+        noBump: a.noBump ?? false,
+        gate: board.ref.gate,
+        payload,
+        sha256Ct,
+        expiresIn: clampPostTtl(board.postTtlS, rootRemaining),
+      })
+      return this.write(w)
     })
-    return this.spend('reply', () => this.write(w))
   }
 
   private async write(w: EntityWrite): Promise<{ key: string; txHash: string }> {
