@@ -54,7 +54,11 @@ export function attestKey(): Promise<Uint8Array> {
       if (cached && /^[0-9a-f]{64}$/.test(cached)) return fromHex(cached)
     } catch { /* storage unavailable */ }
     const sdk = await import('haven-aol')
-    const k = await sdk.fetchAttestationPublicKey(await agent(), env.havenAolCanisterId)
+    // haven-aol is installed with its own @icp-sdk/core (^5.x), so its HttpAgent
+    // type is nominally distinct from the app's 6.1.0 copy (`#private` brand).
+    // The runtime agent is compatible; cross the type boundary explicitly, as
+    // `aol.ts` does for `fetchVerificationKey`.
+    const k = await sdk.fetchAttestationPublicKey((await agent()) as never, env.havenAolCanisterId)
     if (k.length !== 32) throw new Error('canister returned an attestation key that is not 32 bytes')
     try { localStorage.setItem(keyStorageId(), Array.from(k, (b) => b.toString(16).padStart(2, '0')).join('')) } catch { /* memory only */ }
     return k
