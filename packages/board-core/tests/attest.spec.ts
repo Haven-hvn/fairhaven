@@ -14,6 +14,8 @@ import {
   attestPreimage,
   attestRequestDigest,
   attestRequestTypedData,
+  attestationLabel,
+  describeAttestation,
   describeReceiptReason,
   isMemberReceiptShape,
   memberCidHash,
@@ -196,5 +198,27 @@ describe('haven media attestations (dapp / cli shapes)', () => {
   it('epochOf agrees with the fixture', () => {
     expect(epochOf(NOW)).toBe(EPOCH)
     expect(fromHex(vectors.cidHash['679'].sha256)).toHaveLength(32)
+  })
+})
+
+describe('attestation messaging (shared across Haven apps)', () => {
+  const states = ['verified', 'missing', 'invalid', 'unchecked'] as const
+  it('names each state plainly', () => {
+    expect(attestationLabel('verified')).toBe('attested')
+    expect(attestationLabel('missing')).toBe('no attestation — shown anyway')
+    expect(attestationLabel('invalid')).toBe('attestation did not validate')
+    expect(attestationLabel('unchecked')).toBe('not checked')
+    expect(describeAttestation('verified')).toBe('membership attested by Haven-AOL')
+    expect(describeAttestation('missing')).toBe("shown without an attestation — the publishing app didn't include one")
+    expect(describeAttestation('invalid')).toBe("the membership proof on this post couldn't be validated")
+    expect(describeAttestation('unchecked')).toBe('membership checks are unavailable right now')
+  })
+  it('never accuses the poster', () => {
+    for (const s of states) {
+      const text = `${attestationLabel(s)} ${describeAttestation(s)}`.toLowerCase()
+      expect(text).not.toContain('no longer holds')
+      expect(text).not.toContain('not a member')
+      expect(text).not.toContain('rpc')
+    }
   })
 })

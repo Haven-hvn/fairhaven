@@ -131,6 +131,49 @@ export function describeReceiptReason(r: ReceiptReason): string {
   }
 }
 
+// ── Reader-facing state wording ────────────────────────────────────────
+
+/**
+ * How a record's attestation reads to a viewer, shared by every Haven app
+ * so the same situation gets the same words everywhere.
+ *
+ * Policy the wording encodes: absence of an attestation is not evidence
+ * about the poster — legacy records, other Haven apps, and agents without
+ * attestHolding publish without one — so a missing attestation is shown
+ * anyway and worded as a fact about the record, never as an accusation.
+ * Only a present-but-invalid attestation is a validation failure, and even
+ * then the wording blames the proof, not the person.
+ */
+export type AttestationState =
+  /** `payload.attn` present and verified against the canister key. */
+  | 'verified'
+  /** No `payload.attn` on the record. Fallback: shown anyway. */
+  | 'missing'
+  /** `payload.attn` present but failed verification. */
+  | 'invalid'
+  /** Verification could not run (e.g. attestation key unavailable). */
+  | 'unchecked'
+
+/** Short badge text for a listing row. */
+export function attestationLabel(state: AttestationState): string {
+  switch (state) {
+    case 'verified': return 'attested'
+    case 'missing': return 'no attestation — shown anyway'
+    case 'invalid': return 'attestation did not validate'
+    case 'unchecked': return 'not checked'
+  }
+}
+
+/** One-sentence explanation, suitable for a tooltip or notice line. */
+export function describeAttestation(state: AttestationState): string {
+  switch (state) {
+    case 'verified': return 'membership attested by Haven-AOL'
+    case 'missing': return "shown without an attestation — the publishing app didn't include one"
+    case 'invalid': return "the membership proof on this post couldn't be validated"
+    case 'unchecked': return 'membership checks are unavailable right now'
+  }
+}
+
 // ── Shapes ──────────────────────────────────────────────────────────────
 
 function isRecord(x: unknown): x is Record<string, unknown> {

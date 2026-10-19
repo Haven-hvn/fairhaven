@@ -80,19 +80,34 @@ export interface Authored {
   payload?: { attn?: unknown }
 }
 
+/** True when the record actually carries an attestation in its payload. */
+export function hasAttn(r: { payload?: { attn?: unknown } }): boolean {
+  return r.payload?.attn !== undefined
+}
+
 /** Keys of the records whose author proved membership, plus why the others did not. */
 export async function verifyAuthors<T extends Authored>(records: readonly T[], clock: BlockClock | undefined): Promise<{ ok: T[]; rejected: Map<string, ReceiptCheck> }> {
   if (records.length === 0) return { ok: [], rejected: new Map() }
-  const key = await attestKey()
-  const now = Math.floor(Date.now() / 1000)
   const ok: T[] = []
   const rejected = new Map<string, ReceiptCheck>()
-  for (const r of records) {
+  // No attestation is the fallback, not a failure: legacy records, other
+  // Haven apps, and agents without attestHolding publish without one, so
+  // the record shows unverified. Only a present attestation is verified.
+  const toVerify = records.filter((r) => {
+    if (!hasAttn(r)) { ok.push(r); return false }
+    return true
+  })
+  if (toVerify.length === 0) return { ok, rejected }
+  const key = await attestKey()
+  const now = Math.floor(Date.now() / 1000)
+  for (const r of toVerify) {
     const at = clock ? blockToUnix(r.createdAt, clock) : now
     const check = verifyRecordAuthor(r, key, at)
     if (check.ok) ok.push(r)
     else rejected.set(r.key, check)
   }
+  const order = new Map(records.map((r, i) => [r.key, i]))
+  ok.sort((a, b) => (order.get(a.key) ?? 0) - (order.get(b.key) ?? 0))
   return { ok, rejected }
 }
 

@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useAccount, useWalletClient } from 'wagmi'
 import { useState } from 'react'
-import { shortAddress, shortKey, type BoardGate, type HiddenReason, type PostRecord, type ThreadRecord } from '@fairhaven/board-core'
+import { attestationLabel, describeAttestation, shortAddress, shortKey, type BoardGate, type HiddenReason, type PostRecord, type ThreadRecord } from '@fairhaven/board-core'
 import { useOpenText } from '@/hooks/useBoard'
 import { Body, type QuoteTarget } from './Body'
 import { FrostText } from './Frost'
@@ -61,6 +61,12 @@ function useDelete(ctx: PostContext) {
   }
 }
 
+/** Attestation state badge: shared wording from board-core, shown once a record has been checked. */
+export function AttnBadge({ rec }: { rec: ThreadRecord | PostRecord }) {
+  const state = rec.payload?.attn !== undefined ? 'verified' as const : 'missing' as const
+  return <span className="muted" title={describeAttestation(state)}>· {attestationLabel(state)}</span>
+}
+
 export function OpView({ thread, ctx, onIndex }: { thread: ThreadRecord; ctx: PostContext; onIndex?: boolean }) {
   const { address } = useAccount()
   const you = !!address && address.toLowerCase() === thread.owner
@@ -77,7 +83,7 @@ export function OpView({ thread, ctx, onIndex }: { thread: ThreadRecord; ctx: Po
       {media && <MediaView thread={thread} media={media} />}
       <div className="meta">
         <span className="subject">{thread.subject}</span> <span className="name" title={thread.owner}>{shortAddress(thread.owner)}</span>
-        {you && <span className="you-tag"> (you)</span>}{' '}
+        {you && <span className="you-tag"> (you)</span>} <AttnBadge rec={thread} />{' '}
         {thread.source === 'haven' && (
           <span className="muted" title={thread.grp}>
             via {thread.grp.split('.')[1]}{' '}
@@ -133,7 +139,7 @@ export function ReplyView({ post, ctx, pending }: { post: PostRecord; ctx: PostC
     <div className={`reply${you ? ' you' : ''}${pending ? ' pending' : ''}`} id={`p${shortKey(post.key)}`}>
       <div className="meta">
         <span className="name" title={post.owner}>{shortAddress(post.owner)}</span>
-        {you && <span className="you-tag"> (you)</span>} {pending ? <span className="time">confirming…</span> : <Time block={post.createdAt} ctx={ctx} />}{' '}
+        {you && <span className="you-tag"> (you)</span>} {!pending && <AttnBadge rec={post} />} {pending ? <span className="time">confirming…</span> : <Time block={post.createdAt} ctx={ctx} />}{' '}
         <span className="postid">
           No.<a href={`#p${shortKey(post.key)}`} onClick={(e) => (e.preventDefault(), ctx.onReplyTo?.(post.key))} title="Quote this post">{shortKey(post.key)}</a>
         </span>
