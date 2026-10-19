@@ -231,3 +231,31 @@ describe('haven media records as thread roots', () => {
     expect(implicitSlug(gate)).toBe('g.8453.abcdef012345')
   })
 })
+
+describe('membership receipts in payloads', () => {
+  const receipt = { epoch: 679, at: 1760000000, bal: '5', sig: 'ab'.repeat(64) }
+
+  it('a board post carries its member receipt through encode → parseEntity', () => {
+    const payload: BoardPayload = { v: 1, text: { clear: 'hello' }, attn: receipt }
+    const w = buildThreadWrite({ board: 'x.y', subject: 'hi', gate, payload, sha256Ct: 'a'.repeat(64) })
+    const rec = parseEntity({ key: `0x${'ab'.repeat(32)}`, owner: `0x${'1'.repeat(40)}`, createdAt: 500, attributes: w.attributes, payload: w.payload })
+    expect(rec?.kind).toBe('thread')
+    if (rec?.kind !== 'thread') return
+    expect(rec.payload?.attn).toEqual(receipt)
+  })
+
+  it('unknown or malformed attn is dropped, not fatal', () => {
+    expect(decodePayload(new TextEncoder().encode(JSON.stringify({ v: 1, text: { clear: 'x' }, attn: { epoch: 'no' } })))?.attn).toBeUndefined()
+    expect(decodePayload(new TextEncoder().encode(JSON.stringify({ v: 1, text: { clear: 'x' }, attn: { ...receipt, junk: true } })))?.attn).toEqual(receipt)
+  })
+
+  it('a haven media record keeps the dapp attestation bound to sha256_ct', () => {
+    const attn = { evmAddress: `0x${'9'.repeat(40)}`, chain: 'BaseMainnet', tokenAddress: gate.tokenAddress, threshold: 1, balanceAtCheck: 2, cidHash: 'c'.repeat(64), timestamp: 1760000000, signature: 'cd'.repeat(64) }
+    const attrs = { grp: 'haven.video.full', title: 't', gate_type: 3, gate_token: gate.tokenAddress, gate_chain: 8453, gate_threshold: 1, sha256_ct: 'c'.repeat(64), mime: 1 }
+    const payload = new TextEncoder().encode(JSON.stringify({ fcid: 'bafy', size: 1, attn }))
+    const rec = parseEntity({ key: `0x${'77'.repeat(32)}`, owner: `0x${'9'.repeat(40)}`, createdAt: 10, attributes: attrs, payload }, { board: { slug: 'x.y', gate } })
+    expect(rec?.kind).toBe('thread')
+    if (rec?.kind !== 'thread') return
+    expect(rec.payload?.attn).toEqual(attn)
+  })
+})

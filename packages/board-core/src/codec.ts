@@ -28,6 +28,7 @@ import {
   type ChainVariant,
   CHAIN_VARIANTS,
 } from './constants.ts'
+import { normalizeAttestation } from './attest.ts'
 import { fromBase64, utf8Bytes, utf8Decode, utf8Encode } from './bytes.ts'
 import type {
   BoardDef,
@@ -150,6 +151,10 @@ export function decodePayload(bytes: Uint8Array | undefined): BoardPayload | und
     if (media.fcid === undefined && media.piece === undefined) return undefined
     if (media.fcid !== undefined && media.piece !== undefined) return undefined
     out.media = media
+  }
+  if (parsed.attn !== undefined) {
+    const attn = normalizeAttestation(parsed.attn)
+    if (attn) out.attn = attn
   }
   return out
 }
@@ -357,6 +362,8 @@ function parseHavenFull(e: RawEntity, grp: string, boardSlug: string, gate: Boar
         sealed = SEALED_MEDIA
         gateVersion = gateVersionOf(gateJson) ?? 0
       }
+      const attn = raw.attn !== undefined ? normalizeAttestation(raw.attn) : undefined
+      if (attn) payload.attn = attn
     }
   } else {
     // Attributes only (index rows): infer sealing from the presence of a gate type.

@@ -30,6 +30,7 @@ pnpm web:dev
 
 ## Where the protocol work lives
 
-`src/lib/arkiv.ts` (store + writes), `src/lib/aol.ts` (unlock, seal, open), `src/lib/evm.ts`
-(membership), `src/lib/synapse.ts` (media). Everything else is rendering over
-`@fairhaven/board-core`.
+`src/lib/arkiv.ts` (store + writes), `src/lib/aol.ts` (unlock, seal, open),
+`src/lib/receipt.ts` (membership receipts: attestation key, offline verification of every
+author, minting), `src/lib/evm.ts` (your own balance; community mutes), `src/lib/synapse.ts`
+(media). Everything else is rendering over `@fairhaven/board-core`.

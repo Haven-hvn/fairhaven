@@ -1,0 +1,27 @@
+{
+  "$schema": "haven member-receipt vectors v1",
+  "description": "Pinned binding strings for HAVEN_MEMBER_V1 receipts. Shared verbatim with redhaven/packages/vote-core/tests/fixtures/receipt-vectors.json so both implementations verify the same bytes. Signatures depend on the canister key and are not pinned.",
+  "gate": { "chain": "BaseMainnet", "tokenAddress": "0xabcdef0123456789abcdef0123456789abcdef01", "threshold": "1" },
+  "gateSpec": "gate:8453:0xabcdef0123456789abcdef0123456789abcdef01:1",
+  "epochLengthSeconds": 2592000,
+  "now": 1760000000,
+  "epochOfNow": 679,
+  "cidHash": {
+    "679": { "binding": "HAVEN_MEMBER_V1:gate:8453:0xabcdef0123456789abcdef0123456789abcdef01:1:679", "sha256": "073a6ce2c4a24edd0dbb8a568cc2384b94496e5ecee1d4c546448ea1cdfdc465" },
+    "680": { "binding": "HAVEN_MEMBER_V1:gate:8453:0xabcdef0123456789abcdef0123456789abcdef01:1:680", "sha256": "817f4eb591b1dad37cf1fa03b9f6868c7f95fced05a96fa03cb0a84d3cc99846" }
+  },
+  "preimage": {
+    "holder": "0x1111111111111111111111111111111111111111",
+    "epoch": 679,
+    "at": 1760000000,
+    "bal": "5",
+    "expected": "HAVEN_ATTEST_V1:BaseMainnet:0xabcdef0123456789abcdef0123456789abcdef01:1:0x1111111111111111111111111111111111111111:073a6ce2c4a24edd0dbb8a568cc2384b94496e5ecee1d4c546448ea1cdfdc465:1760000000:5"
+  },
+  "eip712": {
+    "domainType": "EIP712Domain(string name,uint256 chainId,address verifyingContract)",
+    "domainName": "HavenAOL",
+    "attestRequestType": "AttestRequest(address evmAddress,bytes32 cidHash,uint256 nonce)",
+    "attestRequestTypehash": "7e4a5ca1db93a70b82733f9735aaa5682d44760b336ea437fea3715550a833b0",
+    "domainTypehash": "8cad95687ba82c2ce50e74f7b754645e5117c3a5bec8151c0726d5857980a866"
+  }
+}

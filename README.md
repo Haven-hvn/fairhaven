@@ -7,7 +7,10 @@ publish under the gate (haven-cli uploads, haven-dapp drops, agent pins) shows u
 thread, and Fairhaven adds the replies. The board forgets on a schedule Arkiv enforces.
 
 No server, no relayer, no database. Posting is an Arkiv transaction from the poster's own
-wallet. Reads are Arkiv queries plus one Haven-AOL signature per member per 30-day epoch.
+wallet. Reads are Arkiv queries, verified offline: every post carries its author's Haven-AOL
+membership receipt (one canister attestation per member per gate per 30-day epoch), checked
+against the canister's Ed25519 key with no RPC. Members sign twice a month per gate: once for
+the epoch key (reading sealed posts), once for the receipt (writing).
 
 ```
 fairhaven/
@@ -26,7 +29,7 @@ fairhaven/
 | Index | Arkiv (`0x44…0044`, `arkiv_query`) | `haven.board.def` / `.thread` / `.post` entities; reads `haven.*.full` as thread roots |
 | Access | Haven-AOL canister `gny6k-fqaaa-aaaab-ag3ra-cai` | v3 epoch key per `(chain, token, threshold, epoch)`; EIP-712 `GateRequestV3` |
 | Bytes | Arkiv payload (text), Filecoin via Synapse (media) | text inline (hard expiry, no gateway), media as piece/root CID |
-| Gate | any EVM | `balanceOf(owner) >= threshold`, checked client-side per post |
+| Gate | any EVM | canister receipt (`attestHolding`) per member per epoch, verified client-side per post; `balanceOf` only for your own wallet |
 
 Nothing in arkiv-chain, the canister, or any SDK changes.
 

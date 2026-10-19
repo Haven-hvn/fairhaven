@@ -85,7 +85,7 @@ export function forgetKeys(): void {
 
 // ── Canister plumbing ───────────────────────────────────────────────────────
 
-async function agent() {
+export async function agent() {
   const { HttpAgent, AnonymousIdentity } = await import('@icp-sdk/core/agent')
   const a = await HttpAgent.create({ host: env.icpHost, identity: new AnonymousIdentity(), verifyQuerySignatures: false })
   if (env.fetchRootKey) await a.fetchRootKey()

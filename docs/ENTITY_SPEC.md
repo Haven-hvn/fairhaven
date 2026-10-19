@@ -89,6 +89,7 @@ Ten attributes max on either group.
 {
   "v": 1,
   "gate": "<Haven-AOL v3 gate JSON string>",      // present iff sealed != 0
+  "attn": { "epoch": 679, "at": 1760000000, "bal": "5", "sig": "<128 hex>" },   // membership receipt, see below
   "text": { "clear": "…" } | { "sealed": "<base64 framed AES-GCM>" },
   "media": {                                      // thread only, optional
     "fcid": "<clear root CID>" | "piece": "<sealed CommP bafk…>",
@@ -98,6 +99,7 @@ Ten attributes max on either group.
 ```
 
 Rules:
+- `attn` is the author's **membership receipt**: the Haven-AOL canister's Ed25519 signature (`sig`, 64 bytes bare hex) over `HAVEN_ATTEST_V1:{chain}:{gate_token}:{gate_threshold}:{owner}:{cidHash}:{at}:{bal}` where `cidHash = sha256("HAVEN_MEMBER_V1:gate:<chainId>:<gate_token>:<gate_threshold>:" + epoch)` as bare lowercase hex, `at` is the canister's unix timestamp, `epoch = floor(at / 2592000)`, and `bal` is `balanceAtCheck` in decimal. Readers accept a post iff the signature verifies under the canister's attestation public key, `bal >= gate_threshold`, `epochOf(at) == epoch`, and the post's block time lies within `[at - 3600, at + 2592000]`. One receipt serves every post the member writes in that epoch on that gate. Posts without a valid `attn` are not rendered. Haven media records keep the dapp's `attn` shapes (single-CID or Merkle, bound to `sha256_ct`); readers verify those with the same key.
 - One AES key per post in the web client. `dsh-board` seals through `AolRuntime.seal`, which shares one AES key per `(chain, token, threshold, epoch)` bucket across the agent's posts in that epoch; this is equivalent in strength (anyone holding the epoch VetKey unwraps either) and lets the agent avoid a canister round-trip per post. Both sealed fields of a post unwrap from the same `gate.encryptedAesKey`.
 - `gate.cid` is a label, not a locator: `sha256:<hex>` where hex is the sha256 of the text as the sealer had it (the web client hashes the sealed bytes, `dsh-board` hashes the padded plaintext because `AolRuntime.seal` needs the label up front). Readers never interpret it. `gate.version = 3`, `gate.epoch` = epoch at post time, `gate.threshold` is the decimal string of `gate_threshold`.
 - Sealed text plaintext is `utf8(JSON {"t": "<text>"})` zero-padded to a bucket (256 B, 1 KiB, 4 KiB, then 4 KiB multiples) before framing, so frosted length reveals only the bucket.

@@ -2,8 +2,13 @@
  * BoardRuntime: the agent-side Fairhaven client. Composes
  *   - an Arkiv public client (reads) and dsh-arkiv's ArkivBackend (writes),
  *   - dsh-haven-aol's AolRuntime (seal / open) wired to ctx.wallet.signDigest,
- *   - a viem balanceOf reader for membership,
- * over the shared @fairhaven/board-core codec, fold, and service layer.
+ *   - the Haven-AOL attestation endpoint (one receipt per gate per epoch),
+ *   - a viem balanceOf reader, used only for community mutes,
+ * over the shared @fairhaven/board-core codec, fold, service and receipt layer.
+ *
+ * Authorship is verified the way every other Haven client verifies it: the
+ * canister's Ed25519 receipt in each post's payload, checked offline. No RPC
+ * per post, no RPC per reader.
  *
  * Every network-touching factory is routed through `internals` so tests can
  * substitute fakes without a chain, a canister, or a wallet.
@@ -28,6 +33,17 @@ import {
   filtersToJson,
   fromBase64,
   gateCidForText,
+  attestHoldingRequest,
+  attestRequestDigest,
+  blockToUnix,
+  describeReceiptReason,
+  hydratePosts,
+  hydrateThreads,
+  randomAttestNonce,
+  receiptFromAttestation,
+  receiptRemaining,
+  verifyRecordAuthor,
+  type MemberReceipt,
   gateVersionOf,
   globalPage,
   indexPage,
@@ -63,6 +79,9 @@ import {
 } from '@fairhaven/board-core'
 import { readFile, writeFile, mkdir, rename } from 'node:fs/promises'
 import { dirname } from 'node:path'
+import { describeAttestError, liveAttestClient, type AttestClient } from './attest-client.ts'
+
+export type { AttestClient } from './attest-client.ts'
 
 // ── Seams ───────────────────────────────────────────────────────────────
 
@@ -115,7 +134,13 @@ export interface BoardRuntimeOpts {
   eip712ChainId?: bigint
   eip712VerifyingContract?: string
   keyStorePath?: string
+  /** Verify every post's canister receipt (default). Off only for local fixtures without a canister. */
   memberCheck: boolean
+  /** Pinned attestation public key (64 hex). Unset: one `getAttestationPublicKey` query per process. */
+  attestPublicKey?: string
+  /** Durable receipt cache (JSON, mode 0600). Unset: memory only (one mint per gate per process start). */
+  receiptsPath?: string
+  /** EVM RPC per chain id. Community mutes only; never used to verify posts. */
   evmRpc: Record<string, string>
   postCostUsd: number
   /** Operator-declared personal filters (JSON-safe form; gate specs as strings). */
@@ -137,7 +162,8 @@ export const internals: {
   createWriter: ((opts: BoardRuntimeOpts, getPrivateKey: () => Promise<string>) => Promise<ArkivWriter>) | undefined
   createAol: ((opts: BoardRuntimeOpts, signGate: ((digestHex: `0x${string}`) => Promise<`0x${string}`>) | undefined) => Promise<AolSeam>) | undefined
   balanceOf: ((rpcUrl: string, token: string, owner: string) => Promise<bigint>) | undefined
-} = { createStore: undefined, createWriter: undefined, createAol: undefined, balanceOf: undefined }
+  createAttest: ((opts: BoardRuntimeOpts) => Promise<AttestClient>) | undefined
+} = { createStore: undefined, createWriter: undefined, createAol: undefined, balanceOf: undefined, createAttest: undefined }
 
 // ── Live factories (lazy imports keep the module loadable in tests) ────
 
@@ -239,7 +265,7 @@ export interface VerifiedPost {
   owner: string
   you: boolean
   member: true
-  verified: Array<'balance' | 'decrypt' | 'hash'>
+  verified: Array<'receipt' | 'decrypt' | 'hash'>
   createdAt: number
   expiresAt?: number
   parent?: string
@@ -261,6 +287,9 @@ export class BoardRuntime {
   private writerP: Promise<ArkivWriter> | undefined
   private aolP: Promise<AolSeam> | undefined
   private readonly members: MembershipCache
+  private attestP: Promise<AttestClient> | undefined
+  /** Receipts minted this process, by gate spec. Loaded from `receiptsPath` when set. */
+  private receipts: Map<string, MemberReceipt> | undefined
   /** Personal filters: config seeds them, file (if configured) extends them, tools edit them. */
   private filters: PersonalFilters
   private filtersLoaded: Promise<void> | undefined
@@ -428,9 +457,17 @@ export class BoardRuntime {
     const idx = await loadIndex(store, board, current)
     const pg = indexPage(idx, page)
     const me = await this.address().catch(() => '')
-    const memberOf = this.opts.memberCheck ? await this.memberMap(board.ref.gate, [...pg.items.map((i) => i.thread.owner), ...pg.items.flatMap((i) => i.tail.map((t) => t.owner))]) : undefined
-    const keep = (owner: string) => !memberOf || memberOf.get(owner.toLowerCase()) === true
-    const memberItems = pg.items.filter((i) => keep(i.thread.owner)).map((i) => ({ ...i, tail: i.tail.filter((t) => keep(t.owner)) }))
+    // Payloads first (two batched $key reads), then every author's receipt is checked offline.
+    const threads = await hydrateThreads(store, pg.items.map((i) => i.thread), board.ref)
+    const tails = await hydratePosts(store, pg.items.flatMap((i) => i.tail), board.ref)
+    const threadByKey = new Map(threads.map((t) => [t.key, t]))
+    const tailByKey = new Map(tails.map((t) => [t.key, t]))
+    const rejected: RejectedPost[] = []
+    const ok = await this.verifiedKeys([...threads, ...tails], current, rejected)
+    const memberItems = pg.items
+      .map((i) => ({ ...i, thread: threadByKey.get(i.thread.key) ?? i.thread, tail: i.tail.map((t) => tailByKey.get(t.key) ?? t) }))
+      .filter((i) => ok.has(i.thread.key))
+      .map((i) => ({ ...i, tail: i.tail.filter((t) => ok.has(t.key)) }))
     // Personal filters drop rendering only; the fold above already ran on the full set.
     const { kept: keptThreads, hidden: hiddenThreads } = await this.filterOut(memberItems.map((i) => i.thread), me)
     const keptKeys = new Set(keptThreads.map((t) => t.key))
@@ -461,6 +498,7 @@ export class BoardRuntime {
           mime: i.thread.mime,
           tail: i.tail.filter((t) => tailKeys.has(t.key)).map((t) => ({ key: t.key, owner: t.owner, createdAt: t.createdAt, sealed: t.sealed, noBump: t.noBump })),
         })),
+      rejected,
       hidden: [...hiddenThreads, ...hiddenTail],
     }
   }
@@ -471,34 +509,50 @@ export class BoardRuntime {
     const idx = await loadGlobalIndex(store, { ...(current !== undefined ? { currentBlock: current } : {}) })
     const pg = globalPage(idx, page)
     const me = await this.address().catch(() => '')
+    // Hydrate per board (payload reads are keyed by board ref), then verify every record against its own gate.
+    const byBoard = new Map<string, { board: ReturnType<typeof boardOf>; items: typeof pg.items }>()
+    for (const i of pg.items) {
+      const board = boardOf(idx, i.thread)
+      const g = byBoard.get(board.ref.slug) ?? { board, items: [] }
+      g.items.push(i)
+      byBoard.set(board.ref.slug, g)
+    }
+    const threadByKey = new Map<string, ThreadRecord>()
+    const tailByKey = new Map<string, PostRecord>()
+    for (const { board, items } of byBoard.values()) {
+      for (const t of await hydrateThreads(store, items.map((i) => i.thread), board.ref)) threadByKey.set(t.key, t)
+      for (const t of await hydratePosts(store, items.flatMap((i) => i.tail), board.ref)) tailByKey.set(t.key, t)
+    }
+    const rejected: RejectedPost[] = []
+    const ok = await this.verifiedKeys([...threadByKey.values(), ...tailByKey.values()], current, rejected)
     const threads: Array<Record<string, unknown>> = []
     const hidden: Array<{ key: string; owner: string; reason: string }> = []
     for (const i of pg.items) {
       const board = boardOf(idx, i.thread)
-      const memberOf = this.opts.memberCheck ? await this.memberMap(board.ref.gate, [i.thread.owner, ...i.tail.map((t) => t.owner)]) : undefined
-      const keep = (owner: string) => !memberOf || memberOf.get(owner.toLowerCase()) === true
-      if (!keep(i.thread.owner)) continue
-      const { kept, hidden: h } = await this.filterOut([i.thread, ...i.tail.filter((t) => keep(t.owner))], me)
+      const thread = threadByKey.get(i.thread.key) ?? i.thread
+      if (!ok.has(thread.key)) continue
+      const tail = i.tail.map((t) => tailByKey.get(t.key) ?? t).filter((t) => ok.has(t.key))
+      const { kept, hidden: h } = await this.filterOut([thread, ...tail], me)
       hidden.push(...h)
-      if (!kept.some((k) => k.key === i.thread.key)) continue
+      if (!kept.some((k) => k.key === thread.key)) continue
       const tailKeys = new Set(kept.map((k) => k.key))
       threads.push({
-        key: i.thread.key,
+        key: thread.key,
         board: board.ref.slug,
         gate: `gate:${VARIANT_TO_EIP155[board.ref.gate.chain]}:${board.ref.gate.tokenAddress}:${board.ref.gate.threshold}`,
-        source: i.thread.source,
-        subject: i.thread.subject,
-        owner: i.thread.owner,
-        you: i.thread.owner === me,
-        createdAt: i.thread.createdAt,
+        source: thread.source,
+        subject: thread.subject,
+        owner: thread.owner,
+        you: thread.owner === me,
+        createdAt: thread.createdAt,
         bumpAt: i.folded.bumpAt,
         replies: i.folded.replyCount,
-        sealed: i.thread.sealed,
-        mime: i.thread.mime,
-        tail: i.tail.filter((t) => tailKeys.has(t.key)).map((t) => ({ key: t.key, owner: t.owner, createdAt: t.createdAt, sealed: t.sealed })),
+        sealed: thread.sealed,
+        mime: thread.mime,
+        tail: tail.filter((t) => tailKeys.has(t.key)).map((t) => ({ key: t.key, owner: t.owner, createdAt: t.createdAt, sealed: t.sealed })),
       })
     }
-    return { page: pg.page, pages: pg.pages, gates: idx.boards.size, ...(current !== undefined ? { currentBlock: current } : {}), threads, hidden }
+    return { page: pg.page, pages: pg.pages, gates: idx.boards.size, ...(current !== undefined ? { currentBlock: current } : {}), threads, rejected, hidden }
   }
 
   async thread(slugOrGate: string, rootKey: string): Promise<{ board: string; root: VerifiedPost; replies: VerifiedPost[]; rejected: RejectedPost[]; hidden: Array<{ key: string; owner: string; reason: string }> }> {
@@ -509,16 +563,13 @@ export class BoardRuntime {
     if (!loaded) throw new Error(`dsh-board: thread ${rootKey} not found on ${board.ref.slug} (expired, deleted, or not under this gate)`)
     const me = await this.address().catch(() => '')
     const rejected: RejectedPost[] = []
-    const memberOf = this.opts.memberCheck ? await this.memberMap(board.ref.gate, [loaded.root.owner, ...loaded.replies.map((r) => r.owner)]) : undefined
+    const receiptOk = await this.verifiedKeys([loaded.root, ...loaded.replies], current, rejected)
     // Personal filters: the root is never dropped (the caller asked for this thread), replies are.
     const { kept: keptReplies, hidden } = await this.filterOut(loaded.replies, me)
 
     const verify = async (rec: ThreadRecord | PostRecord): Promise<VerifiedPost | undefined> => {
-      if (memberOf && memberOf.get(rec.owner) !== true) {
-        rejected.push({ key: rec.key, owner: rec.owner, reason: 'owner does not hold the gate token' })
-        return undefined
-      }
-      const verified: VerifiedPost['verified'] = memberOf ? ['balance'] : []
+      if (!receiptOk.has(rec.key)) return undefined // reason already recorded by verifiedKeys
+      const verified: VerifiedPost['verified'] = this.opts.memberCheck ? ['receipt'] : []
       let text = ''
       if (rec.payload) {
         if (rec.kind === 'post' || (rec.kind === 'thread' && rec.source !== 'haven')) {
@@ -569,10 +620,33 @@ export class BoardRuntime {
     return { board: board.ref.slug, root, replies, rejected, hidden }
   }
 
-  private async memberMap(gate: BoardGate, owners: string[]): Promise<Map<string, boolean>> {
-    const uniq = [...new Set(owners.map((o) => o.toLowerCase()))]
-    const res = await Promise.all(uniq.map((o) => this.members.isMember(gate, o)))
-    return new Map(uniq.map((o, i) => [o, res[i] as boolean]))
+  /**
+   * Keys of the records whose author proved membership: a canister receipt in
+   * the payload, verified offline against the attestation public key as of the
+   * record's creation time. Records without a payload (never hydrated) or
+   * without a valid receipt are listed in `rejected` with the reason.
+   */
+  private async verifiedKeys(records: ReadonlyArray<ThreadRecord | PostRecord>, currentBlock: number | undefined, rejected: RejectedPost[]): Promise<Set<string>> {
+    const ok = new Set<string>()
+    if (!this.opts.memberCheck) {
+      for (const r of records) ok.add(r.key)
+      return ok
+    }
+    if (records.length === 0) return ok
+    const key = await (await this.attest()).publicKey()
+    const now = Math.floor(Date.now() / 1000)
+    const clock = currentBlock !== undefined ? { currentBlock, observedAtUnix: now } : undefined
+    for (const r of records) {
+      const at = clock ? blockToUnix(r.createdAt, clock) : now
+      const check = verifyRecordAuthor(r, key, at)
+      if (check.ok) ok.add(r.key)
+      else rejected.push({ key: r.key, owner: r.owner, reason: describeReceiptReason(check.reason) })
+    }
+    return ok
+  }
+
+  private attest(): Promise<AttestClient> {
+    return (this.attestP ??= (internals.createAttest ?? ((o: BoardRuntimeOpts) => liveAttestClient({ canisterId: o.canisterId, icpHost: o.icpHost, fetchRootKey: o.fetchRootKey, ...(o.attestPublicKey ? { attestPublicKeyHex: o.attestPublicKey } : {}) })))(this.opts))
   }
 
   private async openSealedText(sealedB64: string, gateJson: string): Promise<string> {
@@ -606,12 +680,68 @@ export class BoardRuntime {
     return out
   }
 
-  private async requireMember(gate: BoardGate): Promise<void> {
-    if (!this.opts.memberCheck) return
-    const me = await this.address()
-    if (!(await this.members.isMember(gate, me))) {
-      throw new Error(`dsh-board: ${me} does not hold ≥ ${gate.threshold} of ${gate.tokenAddress} on ${gate.chain}; acquire the gate token before posting`)
+  // ── Membership receipts (the agent's side) ───────────────────────────
+
+  private async loadReceipts(): Promise<Map<string, MemberReceipt>> {
+    if (this.receipts) return this.receipts
+    const m = new Map<string, MemberReceipt>()
+    if (this.opts.receiptsPath) {
+      try {
+        const raw = JSON.parse(await readFile(this.opts.receiptsPath, 'utf8')) as { v?: number; receipts?: Record<string, MemberReceipt> }
+        if (raw.v === 1 && raw.receipts) for (const [k, r] of Object.entries(raw.receipts)) m.set(k, r)
+      } catch {
+        /* no file yet */
+      }
     }
+    this.receipts = m
+    return m
+  }
+
+  private async saveReceipts(): Promise<void> {
+    const p = this.opts.receiptsPath
+    if (!p || !this.receipts) return
+    await mkdir(dirname(p), { recursive: true })
+    const tmp = `${p}.tmp`
+    await writeFile(tmp, JSON.stringify({ v: 1, receipts: Object.fromEntries(this.receipts) }, null, 2), { mode: 0o600 })
+    await rename(tmp, p)
+  }
+
+  /**
+   * This wallet's receipt for `gate`: cached while it has a day of validity
+   * left, otherwise minted — one raw EIP-712 signature (`AttestRequest`) and
+   * one canister call, which also enforces the balance. Replaces the old
+   * `balanceOf` pre-check: the canister is the one that must agree anyway.
+   */
+  async receiptFor(gate: BoardGate): Promise<MemberReceipt | undefined> {
+    if (!this.opts.memberCheck) return undefined
+    const me = await this.address()
+    const id = `gate:${VARIANT_TO_EIP155[gate.chain]}:${gate.tokenAddress}:${gate.threshold}|${me}`
+    const now = Math.floor(Date.now() / 1000)
+    const cache = await this.loadReceipts()
+    const have = cache.get(id)
+    if (have && receiptRemaining(have, now) >= 86_400) return have
+    const w = this.seams.wallet
+    if (typeof w.signDigest !== 'function') throw new Error('dsh-board: ctx.wallet.signDigest missing — mount dsh-wallet-ethereum with provider: raw')
+    const fields = {
+      holder: me,
+      gate,
+      epoch: currentEpoch(),
+      nonce: randomAttestNonce(),
+      eip712ChainId: this.opts.eip712ChainId ?? 1n,
+      verifyingContract: this.opts.eip712VerifyingContract ?? `0x${'00'.repeat(20)}`,
+    }
+    const digest = attestRequestDigest(fields)
+    const res = await w.signDigest(this.opts.wallet, `0x${Array.from(digest, (b) => b.toString(16).padStart(2, '0')).join('')}`)
+    const sigHex = (typeof res === 'string' ? res : res.signature).replace(/^0x/, '')
+    if (!/^[0-9a-fA-F]{130}$/.test(sigHex)) throw new Error('dsh-board: wallet returned a signature that is not 65 bytes')
+    const sig = Uint8Array.from(sigHex.match(/../g)!.map((b) => parseInt(b, 16)))
+    if (sig[64] === 0 || sig[64] === 1) sig[64] = (sig[64] as number) + 27 // canister wants v ∈ {27, 28}
+    const out = await (await this.attest()).attestHolding(attestHoldingRequest(fields, sig))
+    if ('err' in out) throw new Error(`dsh-board: ${me} cannot post on ${gate.tokenAddress} (${gate.chain}): ${describeAttestError(out.err)}`)
+    const receipt = receiptFromAttestation(fields, out.ok)
+    cache.set(id, receipt)
+    await this.saveReceipts().catch(() => undefined)
+    return receipt
   }
 
   private async sealFields(gate: BoardGate, text: string, sealText: boolean, media: Uint8Array | undefined, sealMedia: boolean) {
@@ -650,7 +780,7 @@ export class BoardRuntime {
   }
 
   async createBoard(a: { board: string; title: string; about?: string; gate: BoardGate; bumpLimit?: number; capacity?: number; pageSize?: number; sealText?: boolean; sealMedia?: boolean; threadTtlS?: number; postTtlS?: number; expiresIn?: number }) {
-    await this.requireMember(a.gate)
+    await this.receiptFor(a.gate) // proves membership; a def payload carries no attn
     const w = buildDefWrite({
       board: a.board,
       title: a.title,
@@ -668,11 +798,11 @@ export class BoardRuntime {
 
   async postThread(a: { board: string; subject: string; text: string; sealText?: boolean; media?: { bytes: Uint8Array; mime: string; name?: string }; sealMedia?: boolean }) {
     const board = await this.resolve(a.board)
-    await this.requireMember(board.ref.gate)
+    const attn = await this.receiptFor(board.ref.gate)
     const sealText = a.sealText ?? board.defaults.sealText
     const sealMedia = a.sealMedia ?? board.defaults.sealMedia
     const { gateJson, textField, mediaBytes, sha256Ct } = await this.sealFields(board.ref.gate, a.text, sealText, a.media?.bytes, sealMedia)
-    const payload: BoardPayload = { v: 1, text: textField, ...(gateJson ? { gate: gateJson } : {}) }
+    const payload: BoardPayload = { v: 1, text: textField, ...(gateJson ? { gate: gateJson } : {}), ...(attn ? { attn } : {}) }
     if (a.media) {
       const synapse = this.seams.synapse
       if (!synapse) throw new Error('dsh-board: media given but ctx.synapse is not mounted — install dsh-storage-synapse or post text only')
@@ -699,13 +829,13 @@ export class BoardRuntime {
     const current = await store.currentBlock()
     const loaded = await loadThread(store, board, a.root, current)
     if (!loaded) throw new Error(`dsh-board: root ${a.root} is not a live thread on ${board.ref.slug}`)
-    await this.requireMember(board.ref.gate)
+    const attn = await this.receiptFor(board.ref.gate)
     if (a.parent && a.parent.toLowerCase() !== loaded.root.key && !loaded.replies.some((r) => r.key === a.parent!.toLowerCase())) {
       throw new Error(`dsh-board: parent ${a.parent} is not in this thread`)
     }
     const sealText = a.sealText ?? board.defaults.sealText
     const { gateJson, textField, sha256Ct } = await this.sealFields(board.ref.gate, a.text, sealText, undefined, false)
-    const payload: BoardPayload = { v: 1, text: textField, ...(gateJson ? { gate: gateJson } : {}) }
+    const payload: BoardPayload = { v: 1, text: textField, ...(gateJson ? { gate: gateJson } : {}), ...(attn ? { attn } : {}) }
     const rootRemaining = loaded.root.expiresAt !== undefined && current !== undefined ? (loaded.root.expiresAt - current) * 2 : undefined
     const w = buildPostWrite({
       board: board.ref.slug,

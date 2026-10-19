@@ -1,4 +1,5 @@
 import type { ChainVariant } from './constants.ts'
+import type { PayloadAttestation } from './attest.ts'
 
 /** A Haven gate: who may read. */
 export interface BoardGate {
@@ -58,6 +59,13 @@ export interface BoardPayload {
   /** Haven media records have no text; the parser supplies `{ clear: '' }`. */
   text: TextField
   media?: MediaField
+  /**
+   * Membership proof, verified offline by every reader (see attest.ts).
+   * Board posts: a `MemberReceipt` for (owner, gate, epoch). Haven media
+   * records: the dapp attestation bound to `sha256_ct`. Absent on records
+   * written before receipts existed; readers treat those as unverified.
+   */
+  attn?: PayloadAttestation
 }
 
 export interface BoardDefaults {

@@ -41,6 +41,7 @@ import { arkivStore, watchEntities } from '@/lib/arkiv'
 import { persistedCount } from '@/lib/persist'
 import { membership } from '@/lib/evm'
 import { hasUnlocked, openSealedText, parseGateJson, unlock, type WalletClientLike } from '@/lib/aol'
+import { clockNow, verifyAuthors } from '@/lib/receipt'
 import { useSession } from '@/store/session'
 
 /**
@@ -164,7 +165,7 @@ export function useCurrentBlock() {
   return useQuery({ queryKey: ['block'], queryFn: () => arkivStore.currentBlock(), refetchInterval: 60_000 })
 }
 
-/** Index with membership filtering and OP payload hydration for the current page. */
+/** Index page: OP + tail payload hydration, then offline receipt verification of every author. */
 export function useIndex(board: ResolvedBoard | null | undefined, page: number) {
   const block = useCurrentBlock()
   const qc = useQueryClient()
@@ -187,17 +188,20 @@ export function useIndex(board: ResolvedBoard | null | undefined, page: number) 
     queryFn: async () => {
       if (!board || !q.data) return null
       const pg = indexPage(q.data, page)
-      const owners = [...pg.items.map((i) => i.thread.owner), ...pg.items.flatMap((i) => i.tail.map((t) => t.owner))]
-      const member = await membership.memberMap(board.ref.gate, owners)
-      const items: IndexPageItem[] = pg.items.filter((i) => member.get(i.thread.owner)).map((i) => ({ ...i, tail: i.tail.filter((t) => member.get(t.owner)) }))
-      const hydrated = await hydrateThreads(arkivStore, items.map((i) => i.thread), board.ref)
-      const withPayload = items.map((i, n) => ({ ...i, thread: hydrated[n] ?? i.thread }))
-      // Replies need payloads too: one batched $key query for the whole page.
+      // Payloads first (one batched $key query for OPs, one for tails): the
+      // membership receipt lives in the payload and is verified offline.
+      const hydrated = await hydrateThreads(arkivStore, pg.items.map((i) => i.thread), board.ref)
+      const withPayload = pg.items.map((i, n) => ({ ...i, thread: hydrated[n] ?? i.thread }))
       const flatTail = withPayload.flatMap((i) => i.tail)
       const hydratedTail = await hydratePosts(arkivStore, flatTail, board.ref)
       const tailByKey = new Map(hydratedTail.map((t) => [t.key, t]))
-      const tails = withPayload.map((i) => ({ ...i, tail: i.tail.map((t) => tailByKey.get(t.key) ?? t) }))
-      return { items: tails, page: pg.page, pages: pg.pages, total: q.data.folded.length, ...(q.data.truncated ? { truncated: true } : {}) }
+      const clock = clockNow(q.data.currentBlock ?? block.data ?? undefined)
+      const okThreads = new Set((await verifyAuthors(withPayload.map((i) => i.thread), clock)).ok.map((t) => t.key))
+      const okTails = new Set((await verifyAuthors(hydratedTail, clock)).ok.map((t) => t.key))
+      const items: IndexPageItem[] = withPayload
+        .filter((i) => okThreads.has(i.thread.key))
+        .map((i) => ({ ...i, tail: i.tail.map((t) => tailByKey.get(t.key) ?? t).filter((t) => okTails.has(t.key)) }))
+      return { items, page: pg.page, pages: pg.pages, total: q.data.folded.length, ...(q.data.truncated ? { truncated: true } : {}) }
     },
     enabled: !!board && !!q.data,
   })
@@ -212,7 +216,7 @@ export function useIndex(board: ResolvedBoard | null | undefined, page: number) 
 
 // ── Global feed ─────────────────────────────────────────────────────────
 
-/** Every gate at once. Membership is checked per thread against that thread's gate. */
+/** Every gate at once. Each record's receipt is verified against that record's own gate. */
 export function useGlobalFeed(page: number) {
   const block = useCurrentBlock()
   const qc2 = useQueryClient()
@@ -228,28 +232,9 @@ export function useGlobalFeed(page: number) {
     queryFn: async () => {
       if (!q.data) return null
       const pg = globalPage(q.data, page)
-      // One membership check per (gate, owner) pair on this page.
-      // One memberMap (multicall) per distinct gate on this page.
-      const byGate = new Map<string, { gate: typeof pg.items[number]['thread']['gate']; owners: string[] }>()
-      for (const i of pg.items) {
-        const k = `${i.thread.gate.chain}:${i.thread.gate.tokenAddress}:${i.thread.gate.threshold}`
-        const g = byGate.get(k) ?? { gate: i.thread.gate, owners: [] }
-        g.owners.push(i.thread.owner, ...i.tail.map((x) => x.owner))
-        byGate.set(k, g)
-      }
-      const gateMaps = new Map<string, Map<string, boolean>>()
-      await Promise.all([...byGate.entries()].map(async ([k, { gate, owners }]) => gateMaps.set(k, await membership.memberMap(gate, owners))))
-      const checks = pg.items.map((i) => gateMaps.get(`${i.thread.gate.chain}:${i.thread.gate.tokenAddress}:${i.thread.gate.threshold}`) ?? new Map<string, boolean>())
-      const items: IndexPageItem[] = []
-      for (let n = 0; n < pg.items.length; n++) {
-        const i = pg.items[n]!
-        const m = checks[n]!
-        if (!m.get(i.thread.owner)) continue
-        items.push({ ...i, tail: i.tail.filter((t) => m.get(t.owner)) })
-      }
       // Batched hydration grouped by board: one $key query per chunk for all OPs, one for all tails.
       const byBoard = new Map<string, { board: ReturnType<typeof boardOf>; items: IndexPageItem[] }>()
-      for (const i of items) {
+      for (const i of pg.items) {
         const board = boardOf(q.data!, i.thread)
         const g = byBoard.get(board.ref.slug) ?? { board, items: [] }
         g.items.push(i)
@@ -263,7 +248,14 @@ export function useGlobalFeed(page: number) {
           for (const t of await hydratePosts(arkivStore, group.flatMap((i) => i.tail), board.ref)) tailByKey.set(t.key, t)
         }),
       )
-      const hydrated = items.map((i) => ({ ...i, thread: threadByKey.get(i.thread.key) ?? i.thread, tail: i.tail.map((t) => tailByKey.get(t.key) ?? t) }))
+      // Every record carries its own gate, so one offline pass verifies the whole page.
+      const clock = clockNow(q.data.currentBlock ?? block.data ?? undefined)
+      const okThreads = new Set((await verifyAuthors([...threadByKey.values()], clock)).ok.map((t) => t.key))
+      const okTails = new Set((await verifyAuthors([...tailByKey.values()], clock)).ok.map((t) => t.key))
+      const hydrated: IndexPageItem[] = pg.items
+        .map((i) => ({ ...i, thread: threadByKey.get(i.thread.key) ?? i.thread, tail: i.tail.map((t) => tailByKey.get(t.key) ?? t) }))
+        .filter((i) => okThreads.has(i.thread.key))
+        .map((i) => ({ ...i, tail: i.tail.filter((t) => okTails.has(t.key)) }))
       return { items: hydrated, page: pg.page, pages: pg.pages, total: q.data.folded.length, ...(q.data.truncated ? { truncated: true } : {}) }
     },
     enabled: !!q.data,
@@ -287,10 +279,12 @@ export function useThread(board: ResolvedBoard | null | undefined, rootKey: stri
       if (!board || !rootKey) return null
       const t = await loadThread(arkivStore, board, rootKey, block.data ?? undefined, ...(rootRaw ? [{ rootRaw }] as const : []))
       if (!t) return null
-      const owners = [t.root.owner, ...t.replies.map((r) => r.owner)]
-      const member = await membership.memberMap(board.ref.gate, owners)
-      if (!member.get(t.root.owner)) return { ...t, rootHidden: true as const, replies: [] as PostRecord[] }
-      return { ...t, rootHidden: false as const, replies: t.replies.filter((r) => member.get(r.owner)) }
+      // Root and replies arrive with payloads; verify each author's receipt offline.
+      const clock = clockNow(block.data ?? undefined)
+      const root = await verifyAuthors([t.root], clock)
+      if (root.ok.length === 0) return { ...t, rootHidden: true as const, replies: [] as PostRecord[] }
+      const replies = await verifyAuthors(t.replies, clock)
+      return { ...t, rootHidden: false as const, replies: replies.ok }
     },
     enabled: !!board && !!rootKey,
     staleTime: 30_000,

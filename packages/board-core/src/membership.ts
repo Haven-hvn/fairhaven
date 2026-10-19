@@ -1,7 +1,16 @@
 /**
- * Membership = `balanceOf(owner) >= threshold` on the gate chain. The reader is
- * injected (viem in the web app and in dsh-board; a stub in tests) so this
- * module stays network-free.
+ * Membership = `balanceOf(owner) >= threshold` on the gate chain, read over
+ * RPC. Since receipts (attest.ts) this is NOT used to verify posts: readers
+ * verify the canister receipt in each payload offline. It remains for the two
+ * questions a receipt cannot answer:
+ *
+ *   - "do I hold this token?" for the connected wallet (one address, before
+ *     asking the canister for a receipt);
+ *   - community mutes in filters.ts ("does this owner hold some OTHER token?"),
+ *     a reader-chosen check on a gate the post makes no claim about.
+ *
+ * The reader is injected (viem in the web app and in dsh-board; a stub in
+ * tests) so this module stays network-free.
  */
 
 import type { BoardGate } from './types.ts'

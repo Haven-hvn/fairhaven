@@ -8,7 +8,8 @@
 # Needs (mounted by their own bundles, never restated here):
 #   - dsh-wallet            custody root (`wallets.agent`)
 #   - dsh-wallet-ethereum   with `provider: raw` so ctx.wallet.signDigest exists
-#                           (the EIP-712 gate digest must be signed raw)
+#                           (the EIP-712 gate digest and the membership
+#                           AttestRequest are signed raw)
 #   - dsh-haven-aol         AolRuntime for seal/decrypt (we build a per-call
 #                           runtime wired to signDigest, like dsh-haven-aol does)
 #   - dsh-arkiv             ArkivBackend for writes (ctx.arkiv's Haven validator
@@ -29,8 +30,10 @@
         canisterId: gny6k-fqaaa-aaaab-ag3ra-cai
         icpHost: https://icp-api.io
         fetchRootKey: false
-        memberCheck: true
-        evmRpc:
+        memberCheck: true        # verify every post's canister receipt offline
+        # attestPublicKey: <64 hex>   # pin the canister's Ed25519 attestation key; unset = one query per process
+        # receiptsPath: /data/board/receipts.json   # keep minted receipts across restarts (0600)
+        evmRpc:                  # community mutes only; posts are never checked over RPC
           '1': https://ethereum-rpc.publicnode.com
           '8453': https://base-rpc.publicnode.com
           '10': https://optimism-rpc.publicnode.com

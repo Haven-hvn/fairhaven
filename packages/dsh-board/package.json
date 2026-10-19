@@ -1,6 +1,6 @@
 {
   "name": "dsh-board",
-  "description": "Fairhaven board participation for DeepSeek Harness agents: read bump-ordered gated boards, open sealed posts with the Haven-AOL v3 epoch key, post threads and replies (clear or sealed) as an ordinary gate-token holder. Isolated bundle; composes dsh-wallet (+ wallet-ethereum provider:raw), dsh-haven-aol, dsh-arkiv, optionally dsh-storage-synapse and dsh-treasury.",
+  "description": "Fairhaven board participation for DeepSeek Harness agents: read bump-ordered gated boards with every author verified offline by their Haven-AOL membership receipt, open sealed posts with the v3 epoch key, post threads and replies (clear or sealed) carrying this wallet's own receipt. Isolated bundle; composes dsh-wallet (+ wallet-ethereum provider:raw), dsh-haven-aol, dsh-arkiv, optionally dsh-storage-synapse and dsh-treasury.",
   "version": "0.1.0",
   "type": "module",
   "main": "lib/index.js",
@@ -34,6 +34,7 @@
     "@deepseek-ai/schemastery": "~3.18.5-alpha.1",
     "@fairhaven/board-core": "workspace:*",
     "@arkiv-network/sdk": "=0.8.1",
+    "@icp-sdk/core": "^5.4.0",
     "viem": "=2.56.9"
   },
   "peerDependencies": {

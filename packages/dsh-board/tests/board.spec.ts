@@ -1,17 +1,27 @@
 /**
  * dsh-board runtime spec. No chain, canister, or wallet: every factory is
  * replaced through `internals`. Exercises the full agent path — index, thread
- * verification (membership, hash, sealed-text open), post, reply — against an
- * in-memory Arkiv with one haven-cli video under the same gate.
+ * verification (membership receipt, hash, sealed-text open), post, reply —
+ * against an in-memory Arkiv with one haven-cli video under the same gate.
+ * The fake canister signs real Ed25519 receipts over the real preimage.
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { ed25519 } from '@noble/curves/ed25519.js'
 import {
+  attestPreimage,
   buildDefWrite,
   buildThreadWrite,
+  epochOf,
+  memberCidHash,
+  toHex,
+  utf8Encode,
+  type AttestHoldingOk,
+  type AttestHoldingRequest,
+  type MemberReceipt,
   decodeTextPlain,
   freshAesKey,
   openAny,
@@ -22,7 +32,7 @@ import {
   type RawEntity,
   type WhereClause,
 } from '@fairhaven/board-core'
-import { BoardRuntime, internals, type AolSeam, type ArkivWriter, type BoardRuntimeOpts } from '../src/board.ts'
+import { BoardRuntime, internals, type AolSeam, type ArkivWriter, type AttestClient, type BoardRuntimeOpts } from '../src/board.ts'
 
 const GATE = { chain: 'BaseMainnet' as const, tokenAddress: `0x${'ab'.repeat(20)}`, threshold: 1n }
 const AGENT = `0x${'a'.repeat(40)}`
@@ -83,6 +93,48 @@ function fakeWriter(store: MemStore, owner: string): ArkivWriter & { writes: Arr
   }
 }
 
+/**
+ * Fake Haven-AOL canister: real Ed25519 key, real preimage. `attestHolding`
+ * enforces the balance table like the canister does; the wallet signature is
+ * not checked (the real canister ecrecovers it, the fake wallet's is junk).
+ */
+function fakeCanister(balances: () => Record<string, bigint>) {
+  const priv = ed25519.utils.randomSecretKey()
+  const pub = ed25519.getPublicKey(priv)
+  const now = () => Math.floor(Date.now() / 1000)
+  const receipt = (holder: string, at: number = now(), bal: bigint = balances()[holder.toLowerCase()] ?? 0n): MemberReceipt => {
+    const epoch = epochOf(at)
+    const msg = attestPreimage(GATE.chain, GATE.tokenAddress, GATE.threshold, holder.toLowerCase(), memberCidHash(GATE, epoch), at, bal.toString())
+    return { epoch, at, bal: bal.toString(), sig: toHex(ed25519.sign(msg, priv)) }
+  }
+  const single = (holder: string, sha256Ct: string, at: number) => {
+    const bal = balances()[holder.toLowerCase()] ?? 0n
+    const a = { evmAddress: holder.toLowerCase(), chain: GATE.chain, tokenAddress: GATE.tokenAddress, threshold: 1, balanceAtCheck: Number(bal), cidHash: sha256Ct, timestamp: at }
+    const msg = utf8Encode(`HAVEN_ATTEST_V1:${a.chain}:${a.tokenAddress}:${a.threshold}:${a.evmAddress}:${a.cidHash}:${a.timestamp}:${a.balanceAtCheck}`)
+    return { ...a, signature: toHex(ed25519.sign(msg, priv)) }
+  }
+  const calls = { attest: 0, key: 0 }
+  const client: AttestClient = {
+    async publicKey() {
+      calls.key++
+      return pub
+    },
+    async attestHolding(req: AttestHoldingRequest) {
+      calls.attest++
+      const bal = balances()[req.evmAddress.toLowerCase()] ?? 0n
+      if (bal < req.threshold) return { err: { InsufficientBalance: { required: req.threshold, actual: bal } } }
+      const at = now()
+      const msg = attestPreimage(req.chain, req.tokenAddress, req.threshold, req.evmAddress, req.cidHash, at, bal.toString())
+      const ok: AttestHoldingOk = {
+        attestation: { evmAddress: req.evmAddress, tokenAddress: req.tokenAddress, threshold: req.threshold, balanceAtCheck: bal, cidHash: req.cidHash, timestamp: BigInt(at) },
+        signature: ed25519.sign(msg, priv),
+      }
+      return { ok }
+    },
+  }
+  return { client, receipt, single, calls, pub }
+}
+
 const OPTS: BoardRuntimeOpts = {
   wallet: 'agent',
   privateKeyRef: 'AGENT_EVM_KEY',
@@ -101,6 +153,9 @@ describe('dsh-board runtime', () => {
   let writer: ReturnType<typeof fakeWriter>
   let epochKey: Uint8Array
   let balances: Record<string, bigint>
+  let canister: ReturnType<typeof fakeCanister>
+  /** Receipts for seeded rows must predate them: rows sit at low block heights, i.e. hours ago. */
+  const SEED_AT = Math.floor(Date.now() / 1000) - 20_000
 
   beforeEach(async () => {
     store = new MemStore()
@@ -112,20 +167,22 @@ describe('dsh-board runtime', () => {
     internals.createWriter = async () => writer
     internals.createAol = async () => aol
     internals.balanceOf = async (_rpc, _token, owner) => balances[owner.toLowerCase()] ?? 0n
+    canister = fakeCanister(() => balances)
+    internals.createAttest = async () => canister.client
 
     const def = buildDefWrite({ board: 'conf.back', title: 'Backchannel', about: 'test', gate: GATE, bumpLimit: 300, capacity: 50, pageSize: 10, defaults: { sealText: true, sealMedia: true } })
     store.add(HUMAN, def.attributes, def.payload, 10)
     // A human's clear thread.
-    const t = buildThreadWrite({ board: 'conf.back', subject: 'hello', gate: GATE, payload: { v: 1, text: { clear: 'doors at 9' } }, sha256Ct: await sha256Hex(new TextEncoder().encode('doors at 9')) })
+    const t = buildThreadWrite({ board: 'conf.back', subject: 'hello', gate: GATE, payload: { v: 1, text: { clear: 'doors at 9' }, attn: canister.receipt(HUMAN, SEED_AT) }, sha256Ct: await sha256Hex(new TextEncoder().encode('doors at 9')) })
     store.add(HUMAN, t.attributes, t.payload, 100)
-    // A haven-cli video under the gate.
+    // A haven-cli video under the gate, carrying the dapp's single-CID attestation bound to sha256_ct.
     store.add(
       HUMAN,
       { grp: 'haven.video.full', title: 'keynote', gate_type: 3, gate_token: GATE.tokenAddress, gate_chain: 8453, gate_threshold: 1, mime: 1, sha256_ct: '4'.repeat(64) },
-      new TextEncoder().encode(JSON.stringify({ piece: 'bafkzcibkeynote', gate: JSON.stringify({ version: 3, cid: 'x', chain: 'BaseMainnet', tokenAddress: GATE.tokenAddress, threshold: '1', epoch: 1, encryptedAesKey: 'QQ==' }), size: 9 })),
+      new TextEncoder().encode(JSON.stringify({ piece: 'bafkzcibkeynote', gate: JSON.stringify({ version: 3, cid: 'x', chain: 'BaseMainnet', tokenAddress: GATE.tokenAddress, threshold: '1', epoch: 1, encryptedAesKey: 'QQ==' }), size: 9, attn: canister.single(HUMAN, '4'.repeat(64), SEED_AT) })),
       101,
     )
-    // A stranger's thread (not a holder) — must be dropped everywhere.
+    // A stranger's thread: no receipt (the canister would refuse one) — must be dropped everywhere.
     const s = buildThreadWrite({ board: 'conf.back', subject: 'spam', gate: GATE, payload: { v: 1, text: { clear: 'buy' } }, sha256Ct: await sha256Hex(new TextEncoder().encode('buy')) })
     store.add(STRANGER, s.attributes, s.payload, 102)
   })
@@ -135,6 +192,7 @@ describe('dsh-board runtime', () => {
     internals.createWriter = undefined
     internals.createAol = undefined
     internals.balanceOf = undefined
+    internals.createAttest = undefined
   })
 
   function runtime(walletSign = true) {
@@ -159,6 +217,9 @@ describe('dsh-board runtime', () => {
     expect(keys).toEqual(['keynote', 'hello'])
     expect(idx.threads[0]?.source).toBe('haven')
     expect(idx.threads.some((t) => t.subject === 'spam')).toBe(false)
+    expect(idx.rejected.map((r) => [r.owner, r.reason])).toEqual([[STRANGER, 'no membership receipt']])
+    // The attestation key is fetched once per process, never per post.
+    expect(canister.calls.key).toBe(1)
 
     const byGate = await rt.index(`gate:8453:${GATE.tokenAddress}:1`)
     expect(byGate.board).toBe('conf.back')
@@ -197,11 +258,17 @@ describe('dsh-board runtime', () => {
     expect(ra.sealed).toBe(0)
     expect(ra.parent_ref).toBeUndefined()
 
-    // Read the sealed thread back: decrypt + hash + balance all verified.
+    // The agent minted ONE receipt for both writes and attached it to each.
+    expect(canister.calls.attest).toBe(1)
+    const payload2 = JSON.parse(new TextDecoder().decode(w.payload as Uint8Array)) as { attn?: MemberReceipt }
+    expect(payload2.attn?.bal).toBe('3')
+    expect(payload2.attn?.sig).toMatch(/^[0-9a-f]{128}$/)
+
+    // Read the sealed thread back: receipt + hash + decrypt all verified offline.
     const thread = await rt.thread('conf.back', posted.key)
     expect(thread.root.text).toBe('meet at the back door')
     expect(thread.root.you).toBe(true)
-    expect(thread.root.verified).toEqual(['balance', 'hash', 'decrypt'])
+    expect(thread.root.verified).toEqual(['receipt', 'hash', 'decrypt'])
     expect(thread.rejected).toEqual([])
     expect(aol.calls.decrypt).toBe(1)
 
@@ -217,32 +284,38 @@ describe('dsh-board runtime', () => {
     const rt = runtime()
     const idx = await rt.index('conf.back')
     const hello = idx.threads.find((t) => t.subject === 'hello')!
-    // Stranger reply (not a holder) + a holder reply whose sha256_ct is wrong.
+    // A reply with no receipt, one with a receipt forged under another key, one from a
+    // holder whose sha256_ct is wrong, one whose receipt is for a 1-token balance on a
+    // gate that... is this gate (fine), and one honest reply.
     const storeRows = store.rows
-    const mk = (owner: string, text: string, sha: string) =>
+    const mk = (owner: string, text: string, sha: string, attn?: unknown) =>
       store.add(
         owner,
         { grp: 'haven.board.post', board: 'conf.back', root_ref: hello.key, no_bump: 0, gate_type: 3, gate_token: GATE.tokenAddress, gate_chain: 8453, gate_threshold: 1, sealed: 0, sha256_ct: sha },
-        new TextEncoder().encode(JSON.stringify({ v: 1, text: { clear: text } })),
+        new TextEncoder().encode(JSON.stringify({ v: 1, text: { clear: text }, ...(attn ? { attn } : {}) })),
         200,
       )
     const strangerKey = mk(STRANGER, 'spam', await sha256Hex(new TextEncoder().encode('spam')))
-    const tamperedKey = mk(HUMAN, 'edited', 'e'.repeat(64))
-    const okKey = mk(HUMAN, 'fine', await sha256Hex(new TextEncoder().encode('fine')))
+    const forgedKey = mk(STRANGER, 'spam2', await sha256Hex(new TextEncoder().encode('spam2')), fakeCanister(() => ({ [STRANGER]: 5n })).receipt(STRANGER, SEED_AT))
+    const tamperedKey = mk(HUMAN, 'edited', 'e'.repeat(64), canister.receipt(HUMAN, SEED_AT))
+    const okKey = mk(HUMAN, 'fine', await sha256Hex(new TextEncoder().encode('fine')), canister.receipt(HUMAN, SEED_AT))
     expect(storeRows.length).toBeGreaterThan(5)
 
     const t = await rt.thread('conf.back', hello.key)
     expect(t.replies.map((r) => r.key)).toEqual([okKey])
-    expect(t.rejected.map((r) => [r.key, r.reason.split(' ')[0]])).toEqual([
-      [strangerKey, 'owner'],
-      [tamperedKey, 'sha256_ct'],
+    expect(t.rejected.map((r) => [r.key, r.reason])).toEqual([
+      [strangerKey, 'no membership receipt'],
+      [forgedKey, 'receipt not signed by the Haven-AOL canister'],
+      [tamperedKey, 'sha256_ct does not match stored text'],
     ])
   })
 
-  it('refuses to post when the agent is not a holder, or when the root is foreign', async () => {
+  it('refuses to post when the canister will not attest, or when the root is foreign', async () => {
     balances[AGENT] = 0n
     const rt = runtime()
-    await expect(rt.postThread({ board: 'conf.back', subject: 'x', text: 'y' })).rejects.toThrow(/does not hold/)
+    await expect(rt.postThread({ board: 'conf.back', subject: 'x', text: 'y' })).rejects.toThrow(/holds 0 of the 1 required/)
+    expect(writer.writes).toHaveLength(0)
+    await expect(runtime(false).postThread({ board: 'conf.back', subject: 'x', text: 'y' })).rejects.toThrow(/signDigest/)
     balances[AGENT] = 3n
     await expect(rt.reply({ board: 'conf.back', root: K(999), text: 'y' })).rejects.toThrow(/not a live thread/)
     await expect(rt.resolve('no.such')).rejects.toThrow(/unknown board/)

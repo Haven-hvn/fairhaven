@@ -23,7 +23,9 @@ export interface Env {
   eip712ChainId: bigint
   eip712VerifyingContract: string
   fetchRootKey: boolean
-  /** EVM RPC per EIP-155 chain id, for membership `balanceOf` checks. */
+  /** Pinned Haven-AOL attestation public key (64 hex). Empty = fetch once from the canister and cache. */
+  attestPublicKeyHex: string
+  /** EVM RPC per EIP-155 chain id: the connected wallet's own balance and community mutes only. Posts are verified by receipt, not RPC. */
   rpcUrls: Record<number, string>
   synapseChainId: number
   synapseEnableCdn: boolean
@@ -41,6 +43,7 @@ export const env: Env = {
   eip712ChainId: BigInt(str(process.env.NEXT_PUBLIC_EIP712_CHAIN_ID, '1')),
   eip712VerifyingContract: str(process.env.NEXT_PUBLIC_EIP712_VERIFYING_CONTRACT, '0x0000000000000000000000000000000000000000'),
   fetchRootKey: str(process.env.NEXT_PUBLIC_HAVEN_AOL_FETCH_ROOT_KEY, 'false') === 'true',
+  attestPublicKeyHex: str(process.env.NEXT_PUBLIC_HAVEN_ATTEST_PUBKEY, '').toLowerCase().replace(/^0x/, ''),
   rpcUrls: {
     1: str(process.env.NEXT_PUBLIC_RPC_1, 'https://ethereum-rpc.publicnode.com'),
     8453: str(process.env.NEXT_PUBLIC_RPC_8453, 'https://base-rpc.publicnode.com'),

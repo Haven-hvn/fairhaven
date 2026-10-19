@@ -24,7 +24,7 @@ transaction from the poster's own wallet.
 | RFC 5536 header envelope | Arkiv attributes + JSON payload | `Ident32` is lowercase `a-z0-9_./-`; `Message-ID` fails the precompile. Each attribute costs ~192 B. The entity key already is a self-certifying ID and the tx already names the author. |
 | Body as IPFS CID | Text inline in the Arkiv payload; media on Filecoin via Synapse | Inline text is deleted from the trie at BTL (a hard expiry, which a CID cannot deliver), and readers never hit a gateway (no IP leak). |
 | Tor / local IPFS read path as launch blocker | Dropped | No gateway in the text path. Media reads go to Filecoin providers as every Haven client already does. |
-| Attestation on every post | None in v1 | Membership is proven twice for free: `eth_call balanceOf(owner)` and the fact that the body decrypts under the board key (only a holder can derive it). See §8 roadmap for the per-member epoch attestation design. |
+| Attestation on every post | One **membership receipt** per member per gate per epoch, attached to every post | The Haven-AOL canister already signs holding attestations (Ed25519, offline-verifiable). Binding one to `(member, gate, epoch)` costs a member one signature a month and lets every reader verify every post with no RPC. Per-reader `balanceOf` was dropped: it scaled as viewers × voters against shared public RPCs and made "verified" a function of the reader's network. |
 | Sequential post numbers, `Name`/`Anonymous`/tripcode | Short entity-key ids (`>>8f3a2c1d`), owner address rendered as pseudonym | No server to assign numbers; the author is public anyway. |
 | 4chan Yotsuba palette verbatim | Same structure, contrast-fixed palette | Three pairs failed WCAG AA. See `UI.md`. |
 
@@ -49,7 +49,7 @@ who *can* read, never who *did* read.
 
 Out of scope for v1: public ungated boards (a board may still *show* clear posts to
 non-holders), per-user feeds, reactions, counts beyond reply counts, RLN, board-level
-moderation roles, attestations.
+moderation roles.
 
 ## 3. Architecture
 
@@ -82,9 +82,9 @@ Filecoin/Synapse (media bytes).
 1. Resolve the board (a `haven.board.def`, or a gate given directly). Query Fairhaven roots, Haven media roots under the gate, and replies (attributes only). Run the fold. Render the index. Clear fields render; sealed fields frost. No key needed.
 2. On unlock: sign `GateRequestV3(epoch)`, call `requestDecryptionKeyV3`, `recoverVetKey`, cache per `(chain, token, threshold, epoch)`. Posts sealed in an earlier epoch (Haven media published last month) trigger the same step for that epoch when first opened.
 3. Per sealed post: `ibeDecryptAesKey(gate.encryptedAesKey, vetKey)` then open the framed bytes. Local, no network.
-4. Every rendered post passes membership: `balanceOf(owner) >= threshold` on the gate chain, cached per owner. Non-members' records are hidden.
+4. Every rendered post passes membership offline: its payload carries the author's **receipt** (`attn`), a Haven-AOL canister Ed25519 signature over `HAVEN_ATTEST_V1:{chain}:{token}:{threshold}:{owner}:{cidHash}:{at}:{balance}` with `cidHash = sha256("HAVEN_MEMBER_V1:" + gateSpec + ":" + epoch)`. The reader checks: signature under the canister's attestation key (one query ever, or pinned), `balance >= threshold`, `epochOf(at) == epoch`, and `at` within one epoch before the post's block time. Haven media records carry the dapp's attestation bound to `sha256_ct` and are checked by the same code. Records without a valid receipt are hidden. No RPC is made for any post. Implementation of record: `board-core/src/attest.ts`.
 
-**Anonymous-tier read budget.** Every user is unauthenticated on the public RPC: ~100 charged calls/hour/IP, flat 100 units per `arkiv_query`. The read path is built to that budget, not to the data size: payloads use one batched `$key` OR-query per 50 keys (`hydrateThreads`/`hydratePosts`, never a `getEntity` loop); root groups are one OR-query and every scan is capped at `SCAN_ROWS` (100) rows, with `truncated` surfaced and a cursor (`loadIndexMore`/`loadGlobalMore`) to fetch older windows on demand. Cold front page is 3 charged calls (defs + roots + posts) plus batched hydration; a board page is ~4 plus hydration; a shared thread link is 2 (shared defs fetch + one OR query returning root and replies), or 3 for a legacy implicit slug whose root is read once and shared between gate recovery and the thread load. Repeat visits render from a localStorage-persisted query cache validated by the free `arkiv_getEntityCount` probe (60 s, paused while the tab is hidden); a WebSocket `watchEntityEvents` subscription applies deletions with no query and creations/patches as one batched read folded into the cache, with the probe as fallback. The transport uses `retryCount: 0`, in-flight dedupe, and a concurrency cap of 2, honouring `Retry-After`/quota headers as a cooldown; React Query never retries a 429. Membership uses one multicall per gate per page with a 30-minute persisted cache. A 429 is a rendered "rate limited, resets in Ns" state on every page, never an "Unknown board" or a silent empty render.
+**Anonymous-tier read budget.** Every user is unauthenticated on the public RPC: ~100 charged calls/hour/IP, flat 100 units per `arkiv_query`. The read path is built to that budget, not to the data size: payloads use one batched `$key` OR-query per 50 keys (`hydrateThreads`/`hydratePosts`, never a `getEntity` loop); root groups are one OR-query and every scan is capped at `SCAN_ROWS` (100) rows, with `truncated` surfaced and a cursor (`loadIndexMore`/`loadGlobalMore`) to fetch older windows on demand. Cold front page is 3 charged calls (defs + roots + posts) plus batched hydration; a board page is ~4 plus hydration; a shared thread link is 2 (shared defs fetch + one OR query returning root and replies), or 3 for a legacy implicit slug whose root is read once and shared between gate recovery and the thread load. Repeat visits render from a localStorage-persisted query cache validated by the free `arkiv_getEntityCount` probe (60 s, paused while the tab is hidden); a WebSocket `watchEntityEvents` subscription applies deletions with no query and creations/patches as one batched read folded into the cache, with the probe as fallback. The transport uses `retryCount: 0`, in-flight dedupe, and a concurrency cap of 2, honouring `Retry-After`/quota headers as a cooldown; React Query never retries a 429. Membership costs no calls at all: receipts verify locally. `balanceOf` is used only for the connected wallet's own balance and for community mutes. A 429 is a rendered "rate limited, resets in Ns" state on every page, never an "Unknown board" or a silent empty render.
 
 ## 4. Feed ordering (normative)
 
@@ -138,13 +138,13 @@ Rules:
 | Property | Evidence | Who checks |
 |---|---|---|
 | This address wrote it | Arkiv tx signature; `owner` cannot be forged | the chain |
-| Writer is a member | `balanceOf(owner) >= threshold` | client, cached |
+| Writer is a member | Canister receipt in `payload.attn`: Ed25519 over `HAVEN_ATTEST_V1:…`, bound to (owner, gate, epoch), `balance >= threshold`, issued within one epoch before the post | client, offline |
 | Writer held the board key | AES-GCM tag verifies under the epoch key | client, during open |
 | Not tampered | `sha256_ct` attribute = sha256 of stored text bytes | client |
 | Not re-threaded | `root_ref`, `board` attributes bind the record | client |
 
 Agents receive only posts that passed all of the above, wrapped with provenance
-(`owner`, `member: true`, `verified: ['balance','decrypt']`). Bodies are untrusted data
+(`owner`, `member: true`, `verified: ['receipt','hash','decrypt']`). Bodies are untrusted data
 to the model, never instructions.
 
 ## 7. Launch plan (unchanged in substance)
@@ -159,7 +159,7 @@ devices; show a reply past the bump limit not reordering; show a thread gone at 
 
 ## 8. Roadmap (designed, not built)
 
-- **Per-member epoch attestation.** Canister `attestHolding` with `cidHash = sha256(board + ":" + epoch)`, one call per member per epoch at join, attached to every post that epoch. Reader binds `attn.cidHash` to the post's epoch and board. The canister supports this today; it needs a TS `attestHolding` wrapper and a board-scope verifier rule.
+- ~~Per-member epoch attestation~~ — shipped as membership receipts (§3 step 4, §6). The binding is `(gate spec, epoch)` rather than `(board slug, epoch)` so a receipt serves every board on the gate and redhaven's votes.
 - **RLN** when a board outgrows the gate as spam control.
 - **Board-creator hides.** Clients honoring `DELETE`s on a moderation entity owned by the board definition's creator. Adds an authority Haven otherwise lacks; decide after the first board.
 - **Thumbnails** for non-image OP media (no writer exists in Haven yet).

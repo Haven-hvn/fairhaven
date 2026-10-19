@@ -17,11 +17,13 @@ import {
   type BoardGate,
   type BoardPayload,
   type EntityWrite,
+  type MemberReceipt,
   type ResolvedBoard,
   type ThreadRecord,
 } from '@fairhaven/board-core'
-import { sealPostParts } from './aol'
+import { sealPostParts, type WalletClientLike } from './aol'
 import { env } from './env'
+import { ensureReceipt } from './receipt'
 
 /** Structural wallet: wagmi's `useWalletClient` shape. Callers pass `wc as never`. */
 export interface BrowserWallet {
@@ -31,9 +33,11 @@ export interface BrowserWallet {
 }
 
 export interface WriteProgress {
-  stage: 'preparing' | 'sealing' | 'pinning' | 'switching' | 'signing' | 'done'
+  stage: 'preparing' | 'attesting' | 'sealing' | 'pinning' | 'switching' | 'signing' | 'done'
   uploaded?: number
   total?: number
+  /** Free-text detail for the current stage (the receipt flow names its own steps). */
+  note?: string
 }
 
 export type ProgressFn = (p: WriteProgress) => void
@@ -43,6 +47,8 @@ export function writeProgressLabel(p: WriteProgress): string {
   switch (p.stage) {
     case 'preparing':
       return 'Preparing…'
+    case 'attesting':
+      return p.note ?? 'Proving membership (one signature per month)…'
     case 'sealing':
       return 'Sealing (encrypting)…'
     case 'pinning':
@@ -62,6 +68,8 @@ export function writeProgressLabel(p: WriteProgress): string {
  */
 export function pendingProgressLabel(stage: string | undefined): string {
   switch (stage) {
+    case 'attesting':
+      return 'not posted yet — proving membership…'
     case 'sealing':
       return 'not posted yet — sealing (encrypting)…'
     case 'pinning':
@@ -75,6 +83,16 @@ export function pendingProgressLabel(stage: string | undefined): string {
     default:
       return 'not posted yet — preparing…'
   }
+}
+
+/**
+ * The member's receipt for this gate: stored from an earlier post this epoch,
+ * or minted now (one wallet signature + one canister call). Every post carries
+ * it so readers verify membership offline.
+ */
+async function receiptFor(wallet: BrowserWallet, gate: BoardGate, onProgress?: ProgressFn): Promise<MemberReceipt> {
+  onProgress?.({ stage: 'attesting' })
+  return ensureReceipt(wallet as unknown as WalletClientLike, gate, (note) => { if (note) onProgress?.({ stage: 'attesting', note }) })
 }
 
 function toBlocks(expiresInS: number): number {
@@ -237,10 +255,11 @@ export async function submitThread(a: SubmitThreadArgs): Promise<{ key: string; 
   const epoch = currentEpoch()
   const fileBytes = a.file ? new Uint8Array(await a.file.arrayBuffer()) : undefined
   if (fileBytes && fileBytes.length > 25 * 1024 * 1024) throw new Error('file is over the 25 MB limit')
+  const attn = await receiptFor(a.wallet, a.board.ref.gate, a.onProgress)
   // Only call it sealing when something is actually being encrypted.
   a.onProgress?.({ stage: a.sealText || (fileBytes && a.sealMedia) ? 'sealing' : 'preparing' })
   const sealed = await sealPostParts(a.board.ref.gate, a.text, a.sealText, fileBytes, a.sealMedia, epoch)
-  const payload: BoardPayload = { v: 1, text: sealed.textField, ...(sealed.gateJson ? { gate: sealed.gateJson } : {}) }
+  const payload: BoardPayload = { v: 1, text: sealed.textField, ...(sealed.gateJson ? { gate: sealed.gateJson } : {}), attn }
   if (fileBytes && a.file) {
     const mimeType = a.file.type || 'application/octet-stream'
     const mime = MIME_TO_ENUM[mimeType] ?? MIME_TO_ENUM[mimeType.split(';')[0]?.trim() ?? ''] ?? 0
@@ -273,10 +292,11 @@ export interface SubmitReplyArgs {
 
 export async function submitReply(a: SubmitReplyArgs): Promise<{ key: string; txHash: string }> {
   const epoch = currentEpoch()
+  const attn = await receiptFor(a.wallet, a.board.ref.gate, a.onProgress)
   // Only call it sealing when something is actually being encrypted.
   a.onProgress?.({ stage: a.sealText ? 'sealing' : 'preparing' })
   const sealed = await sealPostParts(a.board.ref.gate, a.text, a.sealText, undefined, false, epoch)
-  const payload: BoardPayload = { v: 1, text: sealed.textField, ...(sealed.gateJson ? { gate: sealed.gateJson } : {}) }
+  const payload: BoardPayload = { v: 1, text: sealed.textField, ...(sealed.gateJson ? { gate: sealed.gateJson } : {}), attn }
   const parent = a.parentKey && a.parentKey.toLowerCase() !== a.root.key ? a.parentKey.toLowerCase() : undefined
   const rootRemaining = a.root.expiresAt !== undefined && a.currentBlock !== undefined ? (a.root.expiresAt - a.currentBlock) * 2 : undefined
   const w = buildPostWrite({

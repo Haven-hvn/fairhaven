@@ -1,6 +1,6 @@
 {
   "name": "@fairhaven/board-core",
-  "description": "Fairhaven board protocol core: haven.board.* entity codec, bump-order fold, sealed-text framing, quote parsing, membership filter. Pure TypeScript, no network, shared by the web client and dsh-board.",
+  "description": "Fairhaven board protocol core: haven.board.* entity codec, bump-order fold, sealed-text framing, quote parsing, offline membership receipts (Haven-AOL Ed25519 attestations). Pure TypeScript, no network, shared by the web client and dsh-board.",
   "version": "0.1.0",
   "type": "module",
   "main": "lib/index.js",
@@ -19,6 +19,10 @@
     "build": "tsdown",
     "prepare": "tsdown",
     "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@noble/curves": "2.4.0",
+    "@noble/hashes": "2.4.0"
   },
   "devDependencies": {
     "tsdown": "=0.23.0",
