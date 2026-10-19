@@ -101,6 +101,13 @@ importers:
         version: 7.0.2
 
   packages/board-core:
+    dependencies:
+      '@noble/curves':
+        specifier: 2.4.0
+        version: 2.4.0
+      '@noble/hashes':
+        specifier: 2.4.0
+        version: 2.4.0
     devDependencies:
       tsdown:
         specifier: '=0.23.0'
@@ -123,6 +130,9 @@ importers:
       '@fairhaven/board-core':
         specifier: workspace:*
         version: link:../board-core
+      '@icp-sdk/core':
+        specifier: ^5.4.0
+        version: 5.4.0
       viem:
         specifier: '=2.56.9'
         version: 2.56.9(typescript@7.0.2)(zod@4.6.7)
@@ -427,6 +437,9 @@ packages:
     resolution: {integrity: sha512-PiYybc4FHq/YWHouZKiS9otp3e32agE2u0C26L04uPklfYMdVeagJV38LlppxDkSTmymHrxJ292i6kGZe9hG4A==}
     peerDependencies:
       viem: 2.x
+
+  '@icp-sdk/core@5.4.0':
+    resolution: {integrity: sha512-yedhCkHIhCxI65W8id99Mi8fUgSyqKSTbD57AphquNcFV2/3Rjykng0/6H08mHswKydDcv6Y0+e8aPdrznewCw==}
 
   '@icp-sdk/core@6.1.0':
     resolution: {integrity: sha512-hw3kozrCoP/JqRLXmG35stFjNOyzfA7FU+lPm66WdcSEIS5PD/sMu2yhNiPIkXFJ+jodeJyxX/a379nMvLS/3g==}
@@ -3335,6 +3348,15 @@ snapshots:
       viem: 2.57.0(typescript@7.0.2)(zod@4.6.7)
     transitivePeerDependencies:
       - typescript
+
+  '@icp-sdk/core@5.4.0':
+    dependencies:
+      '@dfinity/cbor': 0.2.3
+      '@noble/curves': 1.9.7
+      '@noble/hashes': 1.8.0
+      '@scure/bip32': 1.7.0
+      '@scure/bip39': 1.6.0
+      asn1js: 3.0.10
 
   '@icp-sdk/core@6.1.0':
     dependencies:
