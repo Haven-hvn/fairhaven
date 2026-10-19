@@ -1,6 +1,15 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { encodeEventTopics, parseAbi } from 'viem'
 import { pendingProgressLabel, submitReply, writeProgressLabel, type BrowserWallet, type WriteProgress } from '../src/lib/post'
+
+// Minting a receipt needs the Haven-AOL canister and a `signTypedData` wallet
+// call, neither of which this write-path spec is about. Stub it so the spec
+// covers the Arkiv transaction and the stage reporting around it.
+const receipts = vi.hoisted(() => {
+  const fake = { epoch: 679, at: 1_760_000_000, bal: '5', sig: 'ab'.repeat(64) }
+  return { ensureReceipt: vi.fn(async () => fake) }
+})
+vi.mock('../src/lib/receipt', () => ({ ensureReceipt: receipts.ensureReceipt }))
 
 const ARKIV_ADDRESS = '0x4400000000000000000000000000000000000044'
 const OWNER = '0x1111111111111111111111111111111111111111' as `0x${string}`
@@ -14,6 +23,10 @@ const TX_HASH = `0x${'33'.repeat(32)}` as `0x${string}`
  * sat on "Sealing…" (a step a public reply never performs).
  */
 describe('submitReply (public)', () => {
+  beforeEach(() => {
+    receipts.ensureReceipt.mockClear()
+  })
+
   it('switches to Arkiv, prompts for the entity tx, and reports honest stages', async () => {
     const methods: string[] = []
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -117,8 +130,14 @@ describe('submitReply (public)', () => {
       expect(methods, name).toContain('wallet_switchEthereumChain')
       expect(methods, name).toContain('eth_sendTransaction')
       expect(String(sentTx.to).toLowerCase(), name).toBe(ARKIV_ADDRESS)
-      // A public reply never seals, and every stage names its real step.
-      expect(stages, name).toEqual(['preparing', 'switching', 'signing', 'done'])
+      // A public reply proves membership first (mocked receipt), then never
+      // seals, and every stage names its real step.
+      expect(receipts.ensureReceipt, name).toHaveBeenCalledWith(
+        expect.objectContaining({ account: { address: OWNER } }),
+        gate,
+        expect.any(Function),
+      )
+      expect(stages, name).toEqual(['attesting', 'preparing', 'switching', 'signing', 'done'])
     }
     expect(writeProgressLabel({ stage: 'preparing' })).not.toMatch(/sealing/i)
     expect(pendingProgressLabel('signing')).toMatch(/confirm in your wallet/)
