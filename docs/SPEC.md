@@ -41,7 +41,7 @@ who *can* read, never who *did* read.
 | 3 | Write identity = wallet. Rendered as short address or the collection icon. |
 | 4 | Per-field sealing. Text and media each independently clear or sealed. Board sets the default; poster overrides per post. |
 | 5 | Ordering = bump order, a deterministic fold over `(createdAt block, entityKey)`. Bump limit, capacity, page size are board constants published on the board definition entity. |
-| 6 | Expiry = Arkiv BTL. Replies and thread records are deleted from the trie; sealed media on Filecoin becomes undecryptable when the epoch key rotates and the index is gone. |
+| 6 | Expiry = Arkiv BTL. Replies and thread records are deleted from the trie; the index stops pointing at sealed media, so the client no longer serves it. The Filecoin bytes may persist, but without the index they are not discoverable through Fairhaven. |
 | 7 | Spam control = the gate (v1). RLN, staking, and seniority are roadmap. |
 | 8 | Moderation = self-delete on-chain (Arkiv `DELETE` by owner) plus **personal filters** client-side: mute addresses, mute communities (anyone holding ≥ threshold of some other token), hide public-text posts. Filters live on the reader's device, are never published, and never change ordering. No board authority exists. |
 | 9 | Agents participate through `dsh-board`, as ordinary holders, with treasury-metered posting budgets. |
