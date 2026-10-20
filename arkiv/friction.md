@@ -41,6 +41,12 @@ Code: [`apps/web/src/lib/post.ts`](../apps/web/src/lib/post.ts) (`arkivWallet`).
 [`apps/web/tests/post.spec.ts`](../apps/web/tests/post.spec.ts) (the test both asserts the Arkiv
 address receives the tx **and** that the UI never claims "Sealing…" for a public reply).
 
+**Repro (SDK 0.8.1, viem 2.57.0).** Build the write client with `viem`'s `createWalletClient` instead
+of the Arkiv-extended factory, then submit a post. No signing prompt appears and no transaction is
+sent; the UI still shows "Sealing…". The regression test at
+[`apps/web/tests/post.spec.ts`](../apps/web/tests/post.spec.ts) asserts both the tx recipient and the
+absence of the false "Sealing…" state.
+
 **Ask.** An SDK client factory that cannot be confused with viem's — or have `createEntity` throw a
 named error on a plain client, so the failure is loud instead of a silent no-op. This is the single
 bug that cost us the most time, because it looked like a UI bug.
@@ -96,6 +102,12 @@ Code: [`apps/web/src/lib/arkiv.ts`](../apps/web/src/lib/arkiv.ts),
 [`packages/board-core/src/service.ts`](../packages/board-core/src/service.ts),
 [`apps/web/src/hooks/useBoard.ts`](../apps/web/src/hooks/useBoard.ts).
 
+**Repro (SDK 0.8.1, viem 2.57.0).** From one IP on the anonymous tier, open a cold board twice and
+refresh a few times: a cold board is ~4 charged calls, so a handful of loads reaches the ~100
+calls/hour cap and `arkiv_query` returns 429. With viem's default transport the call honours
+`Retry-After` and can appear to hang for tens of minutes; our client sets `retryCount: 0` and renders a
+cooldown.
+
 **Ask (the one thing we would fix first).**
 1. Surface a server-side maximum runtime / `timeoutMs` for `arkiv_query`, and make the HTTP gateway
    fail fast the way the WebSocket surface does instead of hanging.
@@ -147,6 +159,10 @@ the web client and the agent plugin:
 [`packages/board-core/src/sdk.ts`](../packages/board-core/src/sdk.ts) (`toAttributeRecord`,
 `toRawEntity`).
 
+**Repro (SDK 0.7.x vs 0.8.1).** Pin 0.7.x in one workspace package and 0.8.1 in another, then read the
+same entity with each. 0.7 returns attributes as an array of `{ key, value }`; 0.8 returns a tagged map
+`{ name: { type, value } }`. Without the adapter the 0.8 row renders `undefined` attributes.
+
 **Ask.** Document the attribute shape change loudly per major, and publish a supported-read-shape note
 so a builder can tell whether a row is malformed or the SDK simply changed.
 
@@ -182,6 +198,10 @@ predicate: compiler error, not a runtime one.
 [`packages/board-core/src/codec.ts`](../packages/board-core/src/codec.ts) (`requireExpires`),
 [`packages/board-core/src/constants.ts`](../packages/board-core/src/constants.ts) (`BLOCK_TIME_S`).
 
+**Repro (SDK 0.8.1).** Ask for a 7-second TTL. `ExpirationTime.fromBlocks` takes whole blocks, so 7 s is
+not representable: the codec rejects it, and 8 s becomes 4 blocks. Read the row's `$expiresAt` and
+compare with `arkiv_getBlockTiming`; the lifetime is a multiple of the 2 s block, not the requested 7 s.
+
 **Ask.** A `fromSeconds` that rounds or rejects loudly, plus the real block time in the SDK constants
 (`arkiv_getBlockTiming` tells you; not every client knows to ask).
 
@@ -199,6 +219,11 @@ unsupported-network screen, and viem refuses to send an Arkiv transaction from a
 [`apps/web/src/lib/post.ts`](../apps/web/src/lib/post.ts) (`arkivWallet`, `restoreNetwork`),
 [`apps/web/src/lib/wallet.ts`](../apps/web/src/lib/wallet.ts).
 Regression test: [`apps/web/tests/wallet.spec.ts`](../apps/web/tests/wallet.spec.ts).
+
+**Repro (viem 2.57.0, AppKit 1.8.24).** Connect a wallet on any chain other than Tiramisu, open a board
+and click Post. Before the fix the write path shows "unsupported network" and viem refuses to send. The
+regression test at [`apps/web/tests/wallet.spec.ts`](../apps/web/tests/wallet.spec.ts) covers the
+switch/add/restore path.
 
 **Ask.** An Arkiv chain definition that a wallet library accepts out of the box (name, chain id, RPC,
 currency, explorer) and a documented `wallet_addEthereumChain` snippet.
@@ -221,6 +246,10 @@ set produce the same page order with no server:
 [`tests/fixtures/board-order-vectors.json`](../packages/board-core/tests/fixtures/board-order-vectors.json).
 `$createdAt` block heights still drive wall-time display through a `BlockClock`
 ([`packages/board-core/src/time.ts`](../packages/board-core/src/time.ts)).
+
+**Repro (SDK 0.8.1).** Query a board and observe newest-first results; there is no `orderBy`. Put
+`$createdAt` in a predicate: it is not indexed, so it cannot filter. Two clients that want the same page
+order must fold the returned rows by `(createdAt, entityKey)`.
 
 **Ask.** Document clearly that ordering is client-side by design, and note which system attributes are
 filterable and which are not — the absence of `$createdAt` from predicates is easy to assume away.
