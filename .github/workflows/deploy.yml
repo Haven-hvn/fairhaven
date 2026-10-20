@@ -30,6 +30,17 @@ jobs:
           fi
           echo "PINME_APPKEY present"
 
+      - name: Check Arkiv API key presence
+        env:
+          ARKIV_API_KEY: ${{ secrets.ARKIV_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ARKIV_API_KEY:-}" ]; then
+            echo "ARKIV_API_KEY secret missing or empty: the static bundle would ship without X-API-KEY and all reads would use the anonymous tier." >&2
+            exit 1
+          fi
+          echo "ARKIV_API_KEY is set (length ${#ARKIV_API_KEY}); reads will send X-API-KEY. Value never printed."
+
       - name: Checkout Haven-AOL SDK
         run: git clone --depth 1 https://github.com/Haven-hvn/haven-aol.git apps/web/haven-aol
 
