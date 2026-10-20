@@ -83,6 +83,74 @@ export function forgetKeys(): void {
   vetKeys.clear()
 }
 
+// ── Signing on the EIP-712 chain ────────────────────────────────────────────
+// viem's `signTypedData` rejects when the signature domain's `chainId`
+// differs from the wallet's active chain ("Active chainId is 0x2105 but
+// received 0x1"). The Haven-AOL domain lives on `env.eip712ChainId`
+// (Ethereum mainnet by default) while the wallet usually sits on the gate
+// chain (e.g. Base 8453), so switch there for the signature and back
+// afterwards — the same switch-and-restore shape as the Arkiv write path
+// in `lib/post`. Wallets without a reachable provider sign as-is.
+
+/** Minimal provider surface needed to switch chains around a signature. */
+export interface SwitchableWallet extends WalletClientLike {
+  transport?: unknown
+  request?: unknown
+}
+
+function providerOf(wallet: SwitchableWallet): { request: (args: { method: string; params?: unknown }) => Promise<unknown> } | undefined {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const w = wallet as any
+  const transport = w.transport as any
+  if (transport?.value?.request) return transport.value
+  if (typeof transport?.request === 'function') return { request: transport.request.bind(transport) }
+  if (typeof w.request === 'function') return { request: w.request.bind(wallet) }
+  if (typeof window !== 'undefined') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const eth = (window as any).ethereum
+    if (eth?.request) return eth
+  }
+  return undefined
+}
+
+/**
+ * `wallet.signTypedData` with the wallet temporarily switched to `chainId`
+ * (the EIP-712 domain chain). Restores the previous chain afterwards without
+ * masking the signature result. Skips switching when the wallet is already
+ * there or exposes no provider (tests, agent signers).
+ */
+export async function signTypedDataOnChain(
+  wallet: SwitchableWallet,
+  args: { domain: Record<string, unknown>; types: Record<string, unknown[]>; primaryType: string; message: Record<string, unknown> },
+  chainId: bigint = env.eip712ChainId,
+): Promise<string> {
+  const provider = providerOf(wallet)
+  if (!provider) return wallet.signTypedData(args)
+  const want = `0x${Number(chainId).toString(16)}`
+  let previous: string | undefined
+  try {
+    const id: unknown = await provider.request({ method: 'eth_chainId' })
+    if (typeof id === 'string' && /^0x[0-9a-fA-F]+$/.test(id)) previous = id
+  } catch { /* nothing to restore to */ }
+  const needSwitch = !previous || previous.toLowerCase() !== want.toLowerCase()
+  if (needSwitch) {
+    try {
+      await provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: want }] })
+    } catch (e) {
+      throw new Error(`wallet did not switch to the signature chain: ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
+  try {
+    return await wallet.signTypedData(args)
+  } finally {
+    if (needSwitch && previous && previous.toLowerCase() !== want.toLowerCase()) {
+      try {
+        await provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: previous }] })
+      } catch { /* the signature already settled; never mask it */ }
+    }
+  }
+}
+
 // ── Canister plumbing ───────────────────────────────────────────────────────
 
 export async function agent() {
@@ -163,7 +231,7 @@ export async function unlock(wallet: WalletClientLike, gate: BoardGate, epoch: n
   onProgress?.('Sign to unlock (no gas)…')
   let signatureHex: string
   try {
-    signatureHex = await wallet.signTypedData({
+    signatureHex = await signTypedDataOnChain(wallet, {
       domain: typed.domain as unknown as Record<string, unknown>,
       types: typed.types as unknown as Record<string, unknown[]>,
       primaryType: typed.primaryType,

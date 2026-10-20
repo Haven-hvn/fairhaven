@@ -30,7 +30,7 @@ import {
   type MemberReceipt,
   type ReceiptCheck,
 } from '@fairhaven/board-core'
-import { agent, type WalletClientLike } from './aol'
+import { agent, signTypedDataOnChain, type WalletClientLike } from './aol'
 import { env } from './env'
 
 // ── Attestation public key ─────────────────────────────────────────────
@@ -207,12 +207,17 @@ export async function ensureReceipt(wallet: WalletClientLike, gate: BoardGate, o
   const fields = { holder, gate, epoch, nonce: randomAttestNonce(), eip712ChainId: env.eip712ChainId, verifyingContract: env.eip712VerifyingContract }
   const typed = attestRequestTypedData(fields)
   onProgress?.('sign once to prove membership for 30 days (no gas)…')
-  const sigHex = await wallet.signTypedData({
-    domain: typed.domain as unknown as Record<string, unknown>,
-    types: typed.types as unknown as Record<string, unknown[]>,
-    primaryType: typed.primaryType,
-    message: typed.message as unknown as Record<string, unknown>,
-  })
+  let sigHex: string
+  try {
+    sigHex = await signTypedDataOnChain(wallet, {
+      domain: typed.domain as unknown as Record<string, unknown>,
+      types: typed.types as unknown as Record<string, unknown[]>,
+      primaryType: typed.primaryType,
+      message: typed.message as unknown as Record<string, unknown>,
+    })
+  } catch (e) {
+    throw new Error(`signature rejected: ${e instanceof Error ? e.message : String(e)}`)
+  }
   const sdk = await import('haven-aol')
   const signature = sdk.parseSignatureHex(sigHex)
   onProgress?.('canister is checking your balance…')
