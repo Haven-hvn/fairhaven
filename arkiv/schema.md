@@ -1,8 +1,9 @@
 # Arkiv schema — Fairhaven boards (`haven.board.*`)
 
-Fairhaven is a gated, pseudonymous, ephemeral message board with **no backend, no relayer and no
-database**. Every board, thread and reply is an Arkiv entity written by the poster's own wallet.
-Readers reconstruct the whole board from Arkiv queries alone.
+Fairhaven is gated, encrypted file sharing and discussion with **no backend, no relayer and no
+database**. Every board, shared file, thread and reply is an Arkiv entity written by the sharer's own
+wallet. Readers reconstruct the whole index from Arkiv queries alone, and the bytes live on
+Filecoin/IPFS.
 
 - **Network:** Arkiv Tiramisu testnet · chain id `7738577`
 - **HTTP RPC:** `https://rpc.tiramisu.db-chain.testnet.arkiv.network`
