@@ -58,9 +58,24 @@ function noteResponse(status: number, headers: Headers): void {
   }
 }
 
+/**
+ * Attach the Arkiv access key to every read. Supplied as the `ARKIV_API_KEY`
+ * repo secret and inlined as `NEXT_PUBLIC_ARKIV_API_KEY`; this app is a static
+ * export with no server to hide it behind, so the key is public by design and
+ * only raises the read quota. Writes never pass through here: an Arkiv write is
+ * signed and sent by the poster's own wallet.
+ */
+function withApiKey(input: RequestInfo | URL, init?: RequestInit): RequestInit {
+  const key = env.arkivApiKey
+  if (!key) return init ?? {}
+  const headers = new Headers(init?.headers ?? (typeof Request !== 'undefined' && input instanceof Request ? input.headers : undefined))
+  headers.set('X-API-KEY', key)
+  return { ...init, headers }
+}
+
 /** Wrap fetch so 429 headers survive viem's non-JSON-RPC error handling. */
 const budgetingFetch: typeof fetch = async (input, init) => {
-  const res = await fetch(input, init)
+  const res = await fetch(input, withApiKey(input, init))
   try { noteResponse(res.status, res.headers) } catch { /* headers are best-effort */ }
   if (res.status === 429) {
     const waitS = Math.max(0, Math.ceil((cooldownUntil - Date.now()) / 1000))

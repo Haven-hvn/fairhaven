@@ -219,7 +219,12 @@ All queries go through one `EntityStore` built on `@arkiv-network/sdk`:
 ### Read budget
 
 The public Tiramisu RPC bills a flat **100 units per charged `arkiv_query`** at roughly **100 charged
-calls/hour/IP**. The read path is built to that budget rather than to data size:
+calls/hour/IP**. With an access key the edge limit rises to ~10 k requests/min and the gateway
+returns `Arkiv-Quota-Used-Percent`, which the budgeter already reads. The key comes from the
+`ARKIV_API_KEY` repo secret, is inlined as `NEXT_PUBLIC_ARKIV_API_KEY`, and is sent as `X-API-KEY`
+on every read — public by construction, because the app is a static export. It never covers a write:
+an Arkiv write is signed and sent by the poster's wallet, not through the app's RPC. The read path
+is built to the anonymous budget rather than to data size:
 
 - `retryCount: 0` — fail in ~0.6 s instead of sleeping `Retry-After` (which can be tens of minutes).
 - In-flight de-duplication, a concurrency cap of 2, and a cooldown honouring `Retry-After` / quota headers.

@@ -18,6 +18,12 @@ export interface Env {
   walletConnectProjectId: string
   appUrl: string
   arkivRpcUrl: string
+  /**
+   * Arkiv access key, sent as `X-API-KEY` on reads. Built from the `ARKIV_API_KEY`
+   * repo secret into a `NEXT_PUBLIC_*` value, so it ships with the static bundle:
+   * it raises the read quota, it does not protect a write. Empty = anonymous tier.
+   */
+  arkivApiKey: string
   icpHost: string
   havenAolCanisterId: string
   eip712ChainId: bigint
@@ -38,6 +44,7 @@ export const env: Env = {
   walletConnectProjectId: str(process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID, ''),
   appUrl: str(process.env.NEXT_PUBLIC_APP_URL, 'https://fairhaven.local'),
   arkivRpcUrl: str(process.env.NEXT_PUBLIC_ARKIV_RPC_URL, 'https://rpc.tiramisu.db-chain.testnet.arkiv.network'),
+  arkivApiKey: str(process.env.NEXT_PUBLIC_ARKIV_API_KEY, ''),
   icpHost: str(process.env.NEXT_PUBLIC_ICP_HOST, 'https://icp-api.io'),
   havenAolCanisterId: str(process.env.NEXT_PUBLIC_HAVEN_AOL_CANISTER_ID, 'gny6k-fqaaa-aaaab-ag3ra-cai'),
   eip712ChainId: BigInt(str(process.env.NEXT_PUBLIC_EIP712_CHAIN_ID, '1')),
