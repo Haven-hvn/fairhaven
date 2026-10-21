@@ -38,6 +38,7 @@ import {
   type ThreadRecord,
 } from '@fairhaven/board-core'
 import { arkivStore, watchEntities } from '@/lib/arkiv'
+import { isBoardRow, keyTouchesThread, openThreadOf, rowsIncludeDef, rowsTouchThread, type OpenThread } from '@/lib/watch'
 import { persistedCount } from '@/lib/persist'
 import { membership } from '@/lib/evm'
 import { hasUnlocked, openSealedText, parseGateJson, unlock, type WalletClientLike } from '@/lib/aol'
@@ -70,7 +71,9 @@ export function useChangeProbe(prefixes: string[]) {
 // ── Live entity watch (WebSocket, free after handshake) ──────────────
 // One shared subscription; deletions are applied to cached folds with no
 // query at all, creations/patches are fetched as one batched $key read
-// and folded in. The entity-count probe remains as fallback.
+// and folded in. Reloads are relevance-gated (lib/watch): the watch is
+// chain-wide, so a foreign burst costs no charged query. The entity-count
+// probe remains as fallback.
 const watchSubs = new Set<(e: { type: string; entityKey: string }) => void>()
 let watchStop: (() => void) | undefined
 let watchStarting = false
@@ -80,26 +83,33 @@ export function useEntityWatch() {
   useEffect(() => {
     const pending = new Set<string>()
     let timer: ReturnType<typeof setTimeout> | undefined
+    const openThreads = (): OpenThread[] =>
+      qc
+        .getQueriesData<{ root: ThreadRecord; replies: PostRecord[] }>({ queryKey: ['thread'] })
+        .map(([, d]) => openThreadOf(d))
+        .filter((o): o is OpenThread => o !== undefined)
     const flush = async () => {
       const keys = [...pending]
       pending.clear()
       if (keys.length === 0) return
+      let rows: RawEntity[] = []
       try {
-        const rows = (await arkivStore.getMany?.(keys)) ?? []
+        rows = (await arkivStore.getMany?.(keys)) ?? []
         for (const raw of rows) {
+          if (!isBoardRow(raw)) continue
           qc.setQueriesData<GlobalIndex>({ queryKey: ['global'] }, (old) => (old ? applyEntityToGlobalIndex(old, raw) : old))
           qc.setQueriesData<BoardIndex>({ queryKey: ['index'] }, (old) => (old ? applyEntityToBoardIndex(old, raw) : old))
         }
       } catch { /* probe fallback will invalidate */ }
-      void qc.invalidateQueries({ queryKey: ['thread'] })
-      void qc.invalidateQueries({ queryKey: ['boards'] })
+      if (rowsIncludeDef(rows)) void qc.invalidateQueries({ queryKey: ['boards'] })
+      if (rowsTouchThread(rows, openThreads())) void qc.invalidateQueries({ queryKey: ['thread'] })
     }
     const sub = (e: { type: string; entityKey: string }) => {
       if (typeof document !== 'undefined' && document.hidden) return
       if (e.type === 'EntityDeleted') {
         qc.setQueriesData<GlobalIndex>({ queryKey: ['global'] }, (old) => (old ? removeEntityFromGlobalIndex(old, e.entityKey) : old))
         qc.setQueriesData<BoardIndex>({ queryKey: ['index'] }, (old) => (old ? removeEntityFromBoardIndex(old, e.entityKey) : old))
-        void qc.invalidateQueries({ queryKey: ['thread'] })
+        if (keyTouchesThread(e.entityKey, openThreads())) void qc.invalidateQueries({ queryKey: ['thread'] })
         return
       }
       pending.add(e.entityKey)
