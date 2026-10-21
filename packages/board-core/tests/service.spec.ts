@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildDefWrite, buildPostWrite, buildThreadWrite } from '../src/codec.ts'
-import { RateLimitError, applyEntityToGlobalIndex, boardOf, globalPage, hydratePosts, hydrateThreads, indexPage, loadBoards, loadGlobalIndex, loadGlobalMore, loadIndex, loadThread, parseGateSpec, removeEntityFromGlobalIndex, resolveBoard, type EntityStore, type QueryOptions, type QueryPage, type WhereClause } from '../src/service.ts'
+import { RateLimitError, applyEntityToGlobalIndex, boardOf, globalPage, hydratePosts, hydratePostsAcrossBoards, hydrateThreads, hydrateThreadsAcrossBoards, indexPage, loadBoards, loadGlobalIndex, loadGlobalMore, loadIndex, loadThread, parseGateSpec, removeEntityFromGlobalIndex, resolveBoard, type EntityStore, type QueryOptions, type QueryPage, type WhereClause } from '../src/service.ts'
 import type { BoardGate, RawEntity } from '../src/types.ts'
 import { toRawEntity } from '../src/sdk.ts'
 
@@ -174,6 +174,31 @@ describe('service', () => {
     const tails = await hydratePosts(s, [...index.posts.values()].map((p) => ({ ...p, payload: undefined })), board.ref)
     expect(s.getCalls).toBe(0)
     expect(tails.every((t) => t.payload !== undefined)).toBe(true)
+  })
+
+  it('hydrates a multi-board page in one batched fetch, not one per board', async () => {
+    const s = seed()
+    const g = await loadGlobalIndex(s, { currentBlock: 1000, pageSize: 10 })
+    const pg = globalPage(g, 1)
+    const groups = new Map<string, { board: ReturnType<typeof boardOf>; threads: typeof pg.items }>()
+    for (const i of pg.items) {
+      const b = boardOf(g, i.thread)
+      const grp = groups.get(b.ref.slug) ?? { board: b, threads: [] }
+      grp.threads.push(i)
+      groups.set(b.ref.slug, grp)
+    }
+    expect(groups.size).toBeGreaterThan(1)
+    s.getManyCalls = []
+    const bare = pg.items.map((i) => ({ ...i.thread, payload: undefined }))
+    const byBoard = new Map([...groups.values()].map((grp) => [grp.board.ref.slug, bare.filter((t) => grp.threads.some((i) => i.thread.key === t.key))]))
+    const hydrated = await hydrateThreadsAcrossBoards(s, [...groups.values()].map((grp) => ({ board: grp.board.ref, threads: byBoard.get(grp.board.ref.slug)! })))
+    // One chunked fetch for the whole page, however many boards it spans.
+    expect(s.getManyCalls).toHaveLength(1)
+    expect(hydrated.size).toBe(bare.length)
+    // Board threads come back with payloads; haven-full records carry theirs by construction.
+    expect([...hydrated.values()].filter((t) => t.source === 'board').every((t) => t.payload !== undefined)).toBe(true)
+    const tails = await hydratePostsAcrossBoards(s, [...groups.values()].map((grp) => ({ board: grp.board.ref, posts: grp.threads.flatMap((i) => i.tail).map((p) => ({ ...p, payload: undefined as never })) })))
+    expect(tails.size).toBeGreaterThan(0)
   })
 
   it('propagates RateLimitError from batched hydration instead of swallowing it', async () => {

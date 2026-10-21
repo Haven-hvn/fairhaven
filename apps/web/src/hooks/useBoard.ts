@@ -12,7 +12,9 @@ import {
   gateOfRaw,
   gateSpecOf,
   hydratePosts,
+  hydratePostsAcrossBoards,
   hydrateThreads,
+  hydrateThreadsAcrossBoards,
   implicitSlug,
   indexPage,
   loadBoards,
@@ -172,7 +174,7 @@ export function useBoardFromRoot(rootKey: string | null, enabled: boolean) {
 }
 
 export function useCurrentBlock() {
-  return useQuery({ queryKey: ['block'], queryFn: () => arkivStore.currentBlock(), refetchInterval: 60_000 })
+  return useQuery({ queryKey: ['block'], queryFn: () => arkivStore.currentBlock(), refetchInterval: 60_000, staleTime: 30_000 })
 }
 
 /** Index page: OP + tail payload hydration, then offline receipt verification of every author. */
@@ -242,7 +244,8 @@ export function useGlobalFeed(page: number) {
     queryFn: async () => {
       if (!q.data) return null
       const pg = globalPage(q.data, page)
-      // Batched hydration grouped by board: one $key query per chunk for all OPs, one for all tails.
+      // One batched $key fetch for every OP on the page and one for every
+      // tail, however many boards the page spans (parsed per board).
       const byBoard = new Map<string, { board: ReturnType<typeof boardOf>; items: IndexPageItem[] }>()
       for (const i of pg.items) {
         const board = boardOf(q.data!, i.thread)
@@ -250,14 +253,14 @@ export function useGlobalFeed(page: number) {
         g.items.push(i)
         byBoard.set(board.ref.slug, g)
       }
-      const threadByKey = new Map<string, IndexPageItem['thread']>()
-      const tailByKey = new Map<string, IndexPageItem['tail'][number]>()
-      await Promise.all(
-        [...byBoard.values()].map(async ({ board, items: group }) => {
-          for (const t of await hydrateThreads(arkivStore, group.map((i) => i.thread), board.ref)) threadByKey.set(t.key, t)
-          for (const t of await hydratePosts(arkivStore, group.flatMap((i) => i.tail), board.ref)) tailByKey.set(t.key, t)
-        }),
-      )
+      const groups = [...byBoard.values()]
+      const threadByKey = await hydrateThreadsAcrossBoards(arkivStore, groups.map(({ board, items }) => ({ board: board.ref, threads: items.map((i) => i.thread) })))
+      const tailByKey = await hydratePostsAcrossBoards(arkivStore, groups.map(({ board, items }) => ({ board: board.ref, posts: items.flatMap((i) => i.tail) })))
+      // Records that stayed payload-less keep their index shape, as before.
+      for (const i of pg.items) {
+        if (!threadByKey.has(i.thread.key.toLowerCase())) threadByKey.set(i.thread.key.toLowerCase(), i.thread)
+        for (const t of i.tail) if (!tailByKey.has(t.key.toLowerCase())) tailByKey.set(t.key.toLowerCase(), t)
+      }
       // Every record carries its own gate, so one offline pass verifies the whole page.
       const clock = clockNow(q.data.currentBlock ?? block.data ?? undefined)
       const okThreads = new Set((await verifyAuthors([...threadByKey.values()], clock)).ok.map((t) => t.key))

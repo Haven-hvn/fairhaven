@@ -9,6 +9,7 @@
 
 import { openAny, type MediaField, type ThreadRecord } from '@fairhaven/board-core'
 import { hasUnlocked, parseGateJson } from './aol'
+import { fetchResumable, withRetry } from './retrieve'
 import { setOpened, getOpened } from './open-cache'
 import { env } from './env'
 
@@ -46,26 +47,11 @@ export function inFlight(media: MediaField): OpenTask | undefined {
 async function fetchClearBytes(media: MediaField, signal: AbortSignal, onPhase: (p: Phase) => void): Promise<Uint8Array> {
   if (!media.fcid) throw new Error('no content reference')
   if (!env.ipfsGateway) throw new Error('clear media lives on IPFS — open it in haven-dapp')
-  const res = await fetch(`${env.ipfsGateway}/ipfs/${encodeURIComponent(media.fcid)}`, { signal })
-  if (!res.ok || !res.body) throw new Error(`gateway ${res.status}`)
-  const total = Number(res.headers.get('content-length') ?? 0) || undefined
-  const reader = res.body.getReader()
-  const chunks: Uint8Array[] = []
-  let received = 0
-  for (;;) {
-    const { done, value } = await reader.read()
-    if (done) break
-    chunks.push(value)
-    received += value.length
-    onPhase({ s: 'fetching', received, ...(total !== undefined ? { total } : {}) })
-  }
-  const out = new Uint8Array(received)
-  let off = 0
-  for (const c of chunks) {
-    out.set(c, off)
-    off += c.length
-  }
-  return out
+  // Resumable: a dropped gateway connection resumes mid-file, not from zero.
+  return fetchResumable(`${env.ipfsGateway}/ipfs/${encodeURIComponent(media.fcid)}`, {
+    signal,
+    onProgress: (received, total) => onPhase({ s: 'fetching', received, ...(total !== undefined ? { total } : {}) }),
+  })
 }
 
 async function fetchSealedBytes(media: MediaField, signal: AbortSignal, onPhase: (p: Phase) => void): Promise<Uint8Array> {
@@ -75,9 +61,11 @@ async function fetchSealedBytes(media: MediaField, signal: AbortSignal, onPhase:
   const synapse = Synapse.create({ account: privateKeyToAccount(generatePrivateKey()), source: 'fairhaven-web', withCDN: env.synapseEnableCdn })
   onPhase({ s: 'fetching', received: 0, ...(media.size ? { total: media.size } : {}) })
   if (signal.aborted) throw new DOMException('Fetch cancelled', 'AbortError')
-  const bytes = await synapse.storage.download({ pieceCid: media.piece })
+  // One retry with backoff: piece providers drop connections on large files.
+  const piece = media.piece
+  const bytes = await withRetry(() => synapse.storage.download({ pieceCid: piece, withCDN: env.synapseEnableCdn }), { signal, attempts: 2 })
   onPhase({ s: 'fetching', received: bytes.length, ...(media.size ? { total: media.size } : { total: bytes.length }) })
-  return bytes
+  return bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes as ArrayBuffer)
 }
 
 async function openMediaBytes(thread: ThreadRecord, media: MediaField, stored: Uint8Array, onPhase: (p: Phase) => void, signal: AbortSignal): Promise<Uint8Array> {

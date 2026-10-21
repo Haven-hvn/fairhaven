@@ -361,6 +361,55 @@ export async function hydrateThreads(store: EntityStore, threads: ThreadRecord[]
   })
 }
 
+/** One missing-payload fetch shared across boards, parsed per board. */
+async function fetchMissing(store: EntityStore, keys: string[]): Promise<Map<string, RawEntity>> {
+  const rows = await getManyChunked(store, keys, true)
+  return new Map(rows.map((r) => [r.key.toLowerCase(), r]))
+}
+
+/**
+ * Hydrate threads spanning several boards (a global page) with ONE batched
+ * `$key` fetch for every missing payload, instead of one fetch per board.
+ * Returns hydrated records by lowercase entity key; inputs that stay
+ * payload-less are omitted.
+ */
+export async function hydrateThreadsAcrossBoards(store: EntityStore, groups: ReadonlyArray<{ board: BoardRef; threads: readonly ThreadRecord[] }>): Promise<Map<string, ThreadRecord>> {
+  const missing: string[] = []
+  for (const g of groups) for (const t of g.threads) if (!t.payload) missing.push(t.key)
+  const out = new Map<string, ThreadRecord>()
+  if (missing.length === 0) return out
+  const byKey = await fetchMissing(store, missing)
+  for (const g of groups) {
+    for (const t of g.threads) {
+      if (t.payload) continue
+      const raw = byKey.get(t.key.toLowerCase())
+      if (!raw) continue
+      const rec = parseEntity(raw, { board: g.board })
+      if (rec?.kind === 'thread') out.set(t.key.toLowerCase(), rec)
+    }
+  }
+  return out
+}
+
+/** Posts variant of `hydrateThreadsAcrossBoards` (comment tails on a global page). */
+export async function hydratePostsAcrossBoards(store: EntityStore, groups: ReadonlyArray<{ board: BoardRef; posts: readonly PostRecord[] }>): Promise<Map<string, PostRecord>> {
+  const missing: string[] = []
+  for (const g of groups) for (const p of g.posts) if (!p.payload) missing.push(p.key)
+  const out = new Map<string, PostRecord>()
+  if (missing.length === 0) return out
+  const byKey = await fetchMissing(store, missing)
+  for (const g of groups) {
+    for (const p of g.posts) {
+      if (p.payload) continue
+      const raw = byKey.get(p.key.toLowerCase())
+      if (!raw) continue
+      const rec = parseEntity(raw, { board: g.board })
+      if (rec?.kind === 'post') out.set(p.key.toLowerCase(), rec)
+    }
+  }
+  return out
+}
+
 /** Fetch payloads for tail posts on a page, batched like `hydrateThreads`. */
 export async function hydratePosts(store: EntityStore, posts: PostRecord[], board: BoardRef): Promise<PostRecord[]> {
   const missing = posts.filter((p) => !p.payload)
