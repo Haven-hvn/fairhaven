@@ -209,6 +209,18 @@ describe('service', () => {
     expect(removeEntityFromGlobalIndex(g2, K(999))).toBe(g2)
   })
 
+  it('returns the same global index for rows that cannot fold into it', async () => {
+    const s = seed()
+    const g = await loadGlobalIndex(s, { currentBlock: 1000, pageSize: 10 })
+    // A foreign entity (not a board/haven group at all).
+    const foreign: RawEntity = { key: K(900), owner: OWNER, createdAt: 500, attributes: { grp: 'haven.storage.file' } }
+    expect(applyEntityToGlobalIndex(g, foreign)).toBe(g)
+    // A board reply whose root is not in the index folds nowhere.
+    const orphan = buildPostWrite({ board: 'conf.back', rootRef: K(999), gate, payload: { v: 1, text: { clear: 'lost' } }, sha256Ct: '8'.repeat(64) })
+    const orphanRaw: RawEntity = { key: K(901), owner: OWNER, createdAt: 501, attributes: orphan.attributes, payload: orphan.payload }
+    expect(applyEntityToGlobalIndex(g, orphanRaw)).toBe(g)
+  })
+
   it('loads a thread in ONE queryOr call (root + replies), and reuses a shared root', async () => {
     const s = seed()
     const board = (await resolveBoard(s, 'conf.back'))!

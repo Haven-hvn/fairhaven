@@ -539,9 +539,14 @@ export async function loadGlobalMore(store: EntityStore, index: GlobalIndex): Pr
 
 /** Incremental subscription update for the global feed. Same index when irrelevant. */
 export function applyEntityToGlobalIndex(index: GlobalIndex, raw: RawEntity): GlobalIndex {
+  const k = raw.key.toLowerCase()
+  const had = index.threads.has(k) || index.posts.has(k)
   const merged = mergeGlobalRows({ ...index, boards: new Map(index.boards) }, [raw], [raw])
   // mergeGlobalRows treats the row as both root and post candidate; exactly one parses.
-  return merged.threads.get(raw.key.toLowerCase()) === index.threads.get(raw.key.toLowerCase()) && merged.posts.get(raw.key.toLowerCase()) === index.posts.get(raw.key.toLowerCase()) && merged.folded === index.folded ? index : merged
+  // A row that folds nowhere (foreign group, reply to an unknown root, a def)
+  // leaves the index untouched — return it as-is so callers can bail out on identity.
+  if (!had && !merged.threads.has(k) && !merged.posts.has(k)) return index
+  return merged
 }
 
 export function removeEntityFromGlobalIndex(index: GlobalIndex, key: string): GlobalIndex {
