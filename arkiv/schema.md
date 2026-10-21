@@ -222,7 +222,8 @@ The public Tiramisu RPC bills a flat **100 units per charged `arkiv_query`** at 
 calls/hour/IP**. With an access key the edge limit rises to ~10 k requests/min and the gateway
 returns `Arkiv-Quota-Used-Percent`, which the budgeter already reads. The key comes from the
 `ARKIV_API_KEY` repo secret, is inlined as `NEXT_PUBLIC_ARKIV_API_KEY`, and is sent as `X-API-KEY`
-on every read — public by construction, because the app is a static export. It never covers a write:
+on every read — public by construction, because the app is a static export. Deploy fails loud if
+the secret is missing or empty, so a keyless anonymous-tier bundle can never ship silently. It never covers a write:
 an Arkiv write is signed and sent by the poster's wallet, not through the app's RPC. The read path
 is built to the anonymous budget rather than to data size:
 
