@@ -85,8 +85,19 @@ export function hasAttn(r: { payload?: { attn?: unknown } }): boolean {
   return r.payload?.attn !== undefined
 }
 
+/**
+ * Records that need no receipt to be shown:
+ * - `source: 'haven'` — published by another Haven app (haven-cli, haven-dapp,
+ *   agents). Their gate was already matched when the record was parsed.
+ * - the connected viewer's own records — your posts are never hidden from you.
+ */
+export function receiptExempt(r: { owner: string; source?: 'board' | 'haven' }, me?: string): boolean {
+  if (r.source === 'haven') return true
+  return !!me && r.owner.toLowerCase() === me.toLowerCase()
+}
+
 /** Keys of the records whose author proved membership, plus why the others did not. */
-export async function verifyAuthors<T extends Authored>(records: readonly T[], clock: BlockClock | undefined): Promise<{ ok: T[]; rejected: Map<string, ReceiptCheck> }> {
+export async function verifyAuthors<T extends Authored>(records: readonly T[], clock: BlockClock | undefined, me?: string): Promise<{ ok: T[]; rejected: Map<string, ReceiptCheck> }> {
   if (records.length === 0) return { ok: [], rejected: new Map() }
   const ok: T[] = []
   const rejected = new Map<string, ReceiptCheck>()
@@ -94,7 +105,7 @@ export async function verifyAuthors<T extends Authored>(records: readonly T[], c
   // Haven apps, and agents without attestHolding publish without one, so
   // the record shows unverified. Only a present attestation is verified.
   const toVerify = records.filter((r) => {
-    if (!hasAttn(r)) { ok.push(r); return false }
+    if (receiptExempt(r, me) || !hasAttn(r)) { ok.push(r); return false }
     return true
   })
   if (toVerify.length === 0) return { ok, rejected }

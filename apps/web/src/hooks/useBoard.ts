@@ -179,6 +179,7 @@ export function useCurrentBlock() {
 
 /** Index page: OP + tail payload hydration, then offline receipt verification of every author. */
 export function useIndex(board: ResolvedBoard | null | undefined, page: number) {
+  const { address } = useAccount()
   const block = useCurrentBlock()
   const qc = useQueryClient()
   useChangeProbe(['index', 'index-page'])
@@ -208,8 +209,8 @@ export function useIndex(board: ResolvedBoard | null | undefined, page: number) 
       const hydratedTail = await hydratePosts(arkivStore, flatTail, board.ref)
       const tailByKey = new Map(hydratedTail.map((t) => [t.key, t]))
       const clock = clockNow(q.data.currentBlock ?? block.data ?? undefined)
-      const okThreads = new Set((await verifyAuthors(withPayload.map((i) => i.thread), clock)).ok.map((t) => t.key))
-      const okTails = new Set((await verifyAuthors(hydratedTail, clock)).ok.map((t) => t.key))
+      const okThreads = new Set((await verifyAuthors(withPayload.map((i) => i.thread), clock, address)).ok.map((t) => t.key))
+      const okTails = new Set((await verifyAuthors(hydratedTail, clock, address)).ok.map((t) => t.key))
       const items: IndexPageItem[] = withPayload
         .filter((i) => okThreads.has(i.thread.key))
         .map((i) => ({ ...i, tail: i.tail.map((t) => tailByKey.get(t.key) ?? t).filter((t) => okTails.has(t.key)) }))
@@ -230,6 +231,7 @@ export function useIndex(board: ResolvedBoard | null | undefined, page: number) 
 
 /** Every gate at once. Each record's receipt is verified against that record's own gate. */
 export function useGlobalFeed(page: number) {
+  const { address } = useAccount()
   const block = useCurrentBlock()
   const qc2 = useQueryClient()
   useChangeProbe(['global', 'global-page'])
@@ -263,8 +265,8 @@ export function useGlobalFeed(page: number) {
       }
       // Every record carries its own gate, so one offline pass verifies the whole page.
       const clock = clockNow(q.data.currentBlock ?? block.data ?? undefined)
-      const okThreads = new Set((await verifyAuthors([...threadByKey.values()], clock)).ok.map((t) => t.key))
-      const okTails = new Set((await verifyAuthors([...tailByKey.values()], clock)).ok.map((t) => t.key))
+      const okThreads = new Set((await verifyAuthors([...threadByKey.values()], clock, address)).ok.map((t) => t.key))
+      const okTails = new Set((await verifyAuthors([...tailByKey.values()], clock, address)).ok.map((t) => t.key))
       const hydrated: IndexPageItem[] = pg.items
         .map((i) => ({ ...i, thread: threadByKey.get(i.thread.key) ?? i.thread, tail: i.tail.map((t) => tailByKey.get(t.key) ?? t) }))
         .filter((i) => okThreads.has(i.thread.key))
@@ -283,6 +285,7 @@ export function useGlobalFeed(page: number) {
 }
 
 export function useThread(board: ResolvedBoard | null | undefined, rootKey: string | null, rootRaw?: RawEntity) {
+  const { address } = useAccount()
   const block = useCurrentBlock()
   useChangeProbe(['thread'])
   useEntityWatch()
@@ -294,9 +297,9 @@ export function useThread(board: ResolvedBoard | null | undefined, rootKey: stri
       if (!t) return null
       // Root and replies arrive with payloads; verify each author's receipt offline.
       const clock = clockNow(block.data ?? undefined)
-      const root = await verifyAuthors([t.root], clock)
+      const root = await verifyAuthors([t.root], clock, address)
       if (root.ok.length === 0) return { ...t, rootHidden: true as const, replies: [] as PostRecord[] }
-      const replies = await verifyAuthors(t.replies, clock)
+      const replies = await verifyAuthors(t.replies, clock, address)
       return { ...t, rootHidden: false as const, replies: replies.ok }
     },
     enabled: !!board && !!rootKey,
