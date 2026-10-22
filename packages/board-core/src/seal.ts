@@ -174,7 +174,15 @@ export async function openLegacy(sealed: Uint8Array, aesKey: Uint8Array): Promis
 
 /** Dispatch on framing. */
 export async function openAny(sealed: Uint8Array, aesKey: Uint8Array, onProgress?: (p: OpenProgress) => void, signal?: AbortSignal): Promise<Uint8Array> {
-  return isFramed(sealed) ? openFramed(sealed, aesKey, onProgress, signal) : openLegacy(sealed, aesKey)
+  const framed = isFramed(sealed)
+  try {
+    return framed ? await openFramed(sealed, aesKey, onProgress, signal) : await openLegacy(sealed, aesKey)
+  } catch (e) {
+    if (signal?.aborted || (e instanceof DOMException && e.name === 'AbortError')) throw e
+    // Layout misdetection must not be fatal: try the other layout before
+    // blaming the key or the bytes.
+    return framed ? openLegacy(sealed, aesKey) : openFramed(sealed, aesKey, onProgress, signal)
+  }
 }
 
 // ── Convenience: text round-trip ────────────────────────────────────────

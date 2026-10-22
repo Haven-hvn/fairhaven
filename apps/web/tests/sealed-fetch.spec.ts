@@ -18,3 +18,15 @@ describe('sealed-fetch scoping', () => {
     expect(filbeamUrl('not-an-address', 'baga123', 314)).toBeUndefined()
   })
 })
+
+import { describeError, PREFETCH_MAX_BYTES } from '../src/lib/prefetch'
+
+describe('open failure reporting and prefetch policy', () => {
+  it('names DOMExceptions with empty messages instead of printing a blank reason', () => {
+    expect(describeError(new DOMException('', 'OperationError'))).toBe('OperationError')
+    expect(describeError(new Error('boom'))).toBe('boom')
+  })
+  it('caps background prefetch at 8 MiB', () => {
+    expect(PREFETCH_MAX_BYTES).toBe(8 * 1024 * 1024)
+  })
+})

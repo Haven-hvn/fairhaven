@@ -11,7 +11,7 @@ import { openAny, type MediaField, type ThreadRecord } from '@fairhaven/board-co
 import { hasUnlocked, parseGateJson } from './aol'
 import { fetchResumable } from './retrieve'
 import { fetchSealedBytes as fetchSealed } from './sealed-fetch'
-import { setOpened, getOpened, getSealed, setSealed } from './open-cache'
+import { setOpened, getOpened, getSealed, setSealed, deleteSealed } from './open-cache'
 import { env } from './env'
 
 export type Phase = { s: 'fetching'; received: number; total?: number } | { s: 'opening'; chunk: number; chunks: number }
@@ -28,6 +28,10 @@ function locatorOf(media: MediaField): string {
 }
 
 const tasks = new Map<string, OpenTask>()
+
+/** Sealed media at or below this size may prefetch; larger files wait for a click. */
+export const PREFETCH_MAX_BYTES = 8 * 1024 * 1024
+const MAX_IDLE_PREFETCHES = 2
 const idle = new Set<string>()
 
 /** True when the viewer can open this media right now (clear, or unlocked). */
@@ -55,7 +59,7 @@ async function fetchClearBytes(media: MediaField, signal: AbortSignal, onPhase: 
   })
 }
 
-async function fetchSealedBytes(media: MediaField, thread: ThreadRecord, signal: AbortSignal, onPhase: (p: Phase) => void): Promise<Uint8Array> {
+async function fetchSealedBytes(media: MediaField, thread: ThreadRecord, signal: AbortSignal, onPhase: (p: Phase) => void, forceStorage = false): Promise<Uint8Array> {
   if (!media.piece) throw new Error('no piece reference')
   onPhase({ s: 'fetching', received: 0, ...(media.size ? { total: media.size } : {}) })
   if (signal.aborted) throw new DOMException('Fetch cancelled', 'AbortError')
@@ -66,11 +70,18 @@ async function fetchSealedBytes(media: MediaField, thread: ThreadRecord, signal:
     ...(gateChain ? { gateChain } : {}),
     source: 'fairhaven-web',
     withCdn: env.synapseEnableCdn,
+    ...(forceStorage ? { forceStorage: true } : {}),
     signal,
     onProgress: (received, total) => onPhase({ s: 'fetching', received, total: media.size ?? total }),
   })
   onPhase({ s: 'fetching', received: bytes.length, ...(media.size ? { total: media.size } : { total: bytes.length }) })
   return bytes
+}
+
+export function describeError(e: unknown): string {
+  if (e instanceof DOMException) return e.message ? `${e.name}: ${e.message}` : e.name
+  if (e instanceof Error) return e.message || e.name
+  return String(e)
 }
 
 async function openMediaBytes(thread: ThreadRecord, media: MediaField, stored: Uint8Array, onPhase: (p: Phase) => void, signal: AbortSignal): Promise<Uint8Array> {
@@ -87,7 +98,7 @@ async function openMediaBytes(thread: ThreadRecord, media: MediaField, stored: U
     return await openAny(stored, aesKey, (p) => onPhase({ s: 'opening', chunk: p.chunk, chunks: p.chunks }), signal)
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') throw e
-    throw new Error(`opening failed: ${e instanceof Error ? e.message : String(e)}`)
+    throw new Error(`opening failed: ${describeError(e)}`)
   }
 }
 
@@ -118,7 +129,19 @@ export function openNow(thread: ThreadRecord, media: MediaField): OpenTask {
         } else {
           emit({ s: 'fetching', received: stored.length, total: stored.length })
         }
-        const opened = await openMediaBytes(thread, media, stored, emit, ctrl.signal)
+        let opened: Uint8Array
+        try {
+          opened = await openMediaBytes(thread, media, stored, emit, ctrl.signal)
+        } catch (e) {
+          // A resolved-URL fetch can return bytes the GCM open rejects
+          // (bad Range resume, CDN artifact). One retry through the
+          // StorageManager's validating download, then give up.
+          if (media.piece === undefined || (e instanceof DOMException && e.name === 'AbortError')) throw e
+          deleteSealed(locator)
+          const fresh = await fetchSealedBytes(media, thread, ctrl.signal, emit, true)
+          setSealed(locator, fresh)
+          opened = await openMediaBytes(thread, media, fresh, emit, ctrl.signal)
+        }
         setOpened(locator, opened)
         return opened
       } finally {
@@ -143,6 +166,8 @@ export function prefetch(thread: ThreadRecord, media: MediaField): void {
   const locator = locatorOf(media)
   if (!locator || getOpened(locator) || tasks.has(locator)) return
   if (!canOpenNow(thread, media)) return
+  if (media.piece !== undefined && (media.size ?? 0) > PREFETCH_MAX_BYTES) return
+  if (idle.size >= MAX_IDLE_PREFETCHES) return
   idle.add(locator)
   const task = openNow(thread, media)
   task.promise.catch(() => undefined)

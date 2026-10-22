@@ -41,6 +41,8 @@ export interface SealedFetchOptions {
   gateChain?: string
   source: string
   withCdn: boolean
+  /** Skip owner-aware resolution; go straight to the StorageManager download. */
+  forceStorage?: boolean
   signal?: AbortSignal
   onProgress?: (received: number, total?: number) => void
 }
@@ -59,7 +61,7 @@ export async function fetchSealedBytes(opts: SealedFetchOptions): Promise<Uint8A
 
   // Owner-aware resolution first: FilBeam (CDN) then on-chain PDP datasets
   // of the uploader — the candidates a bare download never constructs.
-  if (opts.owner && OWNER_RE.test(opts.owner)) {
+  if (!opts.forceStorage && opts.owner && OWNER_RE.test(opts.owner)) {
     try {
       const { tryFrom, resolvePieceUrl, filbeamResolver, chainResolver } = await import('@filoz/synapse-core/piece')
       const parsed = tryFrom(opts.piece)

@@ -39,6 +39,10 @@ export function setSealed(locator: string, bytes: Uint8Array): void {
   if (locator) sealedCache.set(locator, bytes)
 }
 
+export function deleteSealed(locator: string): void {
+  sealedCache.delete(locator)
+}
+
 export function clearOpened(): void {
   sealedCache.clear()
   for (const entry of cache.values()) {
