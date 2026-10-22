@@ -30,3 +30,13 @@ describe('open failure reporting and prefetch policy', () => {
     expect(PREFETCH_MAX_BYTES).toBe(8 * 1024 * 1024)
   })
 })
+
+import { comparePageOrder, PREFETCH_CONCURRENCY } from '../src/lib/prefetch'
+
+describe('prefetch ordering', () => {
+  it('runs one at a time and sorts top-to-bottom', () => {
+    expect(PREFETCH_CONCURRENCY).toBe(1)
+    const jobs = [{ top: 900 }, { top: 100 }, { top: 500 }].sort(comparePageOrder)
+    expect(jobs.map((j) => j.top)).toEqual([100, 500, 900])
+  })
+})

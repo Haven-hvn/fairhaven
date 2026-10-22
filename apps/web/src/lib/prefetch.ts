@@ -31,7 +31,6 @@ const tasks = new Map<string, OpenTask>()
 
 /** Sealed media at or below this size may prefetch; larger files wait for a click. */
 export const PREFETCH_MAX_BYTES = 8 * 1024 * 1024
-const MAX_IDLE_PREFETCHES = 2
 const idle = new Set<string>()
 
 /** True when the viewer can open this media right now (clear, or unlocked). */
@@ -161,21 +160,54 @@ export function openNow(thread: ThreadRecord, media: MediaField): OpenTask {
   return task
 }
 
-/** Background prefetch: open when entitled, swallow failures, stay cached. */
-export function prefetch(thread: ThreadRecord, media: MediaField): void {
+/** Background prefetches run strictly one at a time. */
+export const PREFETCH_CONCURRENCY = 1
+
+interface IdleJob { thread: ThreadRecord; media: MediaField; locator: string; top: number }
+const idleQueue: IdleJob[] = []
+let idleRunning = 0
+
+export function comparePageOrder(a: { top: number }, b: { top: number }): number {
+  return a.top - b.top
+}
+
+function pumpIdle(): void {
+  while (idleRunning < PREFETCH_CONCURRENCY && idleQueue.length > 0) {
+    const job = idleQueue.shift() as IdleJob
+    if (getOpened(job.locator) || tasks.has(job.locator)) continue
+    idleRunning++
+    idle.add(job.locator)
+    const task = openNow(job.thread, job.media)
+    task.promise.catch(() => undefined).finally(() => {
+      idleRunning--
+      idle.delete(job.locator)
+      pumpIdle()
+    })
+  }
+}
+
+/**
+ * Background prefetch: open when entitled, swallow failures, stay cached.
+ * Jobs queue in page order (`top` = absolute Y of the tile) and run one at
+ * a time, so scrolling a page loads its media top-to-bottom instead of
+ * racing every file at once.
+ */
+export function prefetch(thread: ThreadRecord, media: MediaField, top = Number.POSITIVE_INFINITY): void {
   const locator = locatorOf(media)
   if (!locator || getOpened(locator) || tasks.has(locator)) return
   if (!canOpenNow(thread, media)) return
   if (media.piece !== undefined && (media.size ?? 0) > PREFETCH_MAX_BYTES) return
-  if (idle.size >= MAX_IDLE_PREFETCHES) return
-  idle.add(locator)
-  const task = openNow(thread, media)
-  task.promise.catch(() => undefined)
+  if (idle.has(locator) || idleQueue.some((j) => j.locator === locator)) return
+  idleQueue.push({ thread, media, locator, top })
+  idleQueue.sort(comparePageOrder)
+  pumpIdle()
 }
 
 /** Cancel a background (idle/hover) open; explicit opens are left alone. */
 export function cancelIdle(media: MediaField): void {
   const locator = locatorOf(media)
+  const qi = idleQueue.findIndex((j) => j.locator === locator)
+  if (qi >= 0) idleQueue.splice(qi, 1)
   if (!idle.has(locator)) return
   tasks.get(locator)?.cancel()
 }

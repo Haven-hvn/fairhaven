@@ -24,7 +24,7 @@ export function usePrefetchMedia(thread: ThreadRecord, media: MediaField | undef
         for (const e of entries) {
           // Viewport prefetch only for sealed media the viewer already unlocked;
           // clear media waits for hover intent (below) or an explicit click.
-          if (e.isIntersecting) { if (media.piece !== undefined) prefetch(thread, media) }
+          if (e.isIntersecting) { if (media.piece !== undefined) prefetch(thread, media, el.getBoundingClientRect().top + window.scrollY) }
           else cancelIdle(media)
         }
       },
@@ -36,7 +36,7 @@ export function usePrefetchMedia(thread: ThreadRecord, media: MediaField | undef
 
   const onMouseEnter = () => {
     if (!media) return
-    hoverTimer.current = setTimeout(() => prefetch(thread, media), 1500)
+    hoverTimer.current = setTimeout(() => prefetch(thread, media, ref.current ? ref.current.getBoundingClientRect().top + window.scrollY : undefined), 1500)
   }
   const onMouseLeave = () => {
     if (hoverTimer.current) clearTimeout(hoverTimer.current)
