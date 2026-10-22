@@ -9,7 +9,8 @@
 
 import { openAny, type MediaField, type ThreadRecord } from '@fairhaven/board-core'
 import { hasUnlocked, parseGateJson } from './aol'
-import { fetchResumable, withRetry } from './retrieve'
+import { fetchResumable } from './retrieve'
+import { fetchSealedBytes as fetchSealed } from './sealed-fetch'
 import { setOpened, getOpened } from './open-cache'
 import { env } from './env'
 
@@ -54,18 +55,22 @@ async function fetchClearBytes(media: MediaField, signal: AbortSignal, onPhase: 
   })
 }
 
-async function fetchSealedBytes(media: MediaField, signal: AbortSignal, onPhase: (p: Phase) => void): Promise<Uint8Array> {
+async function fetchSealedBytes(media: MediaField, thread: ThreadRecord, signal: AbortSignal, onPhase: (p: Phase) => void): Promise<Uint8Array> {
   if (!media.piece) throw new Error('no piece reference')
-  const { Synapse } = await import('@filoz/synapse-sdk')
-  const { privateKeyToAccount, generatePrivateKey } = await import('viem/accounts')
-  const synapse = Synapse.create({ account: privateKeyToAccount(generatePrivateKey()), source: 'fairhaven-web', withCDN: env.synapseEnableCdn })
   onPhase({ s: 'fetching', received: 0, ...(media.size ? { total: media.size } : {}) })
   if (signal.aborted) throw new DOMException('Fetch cancelled', 'AbortError')
-  // One retry with backoff: piece providers drop connections on large files.
-  const piece = media.piece
-  const bytes = await withRetry(() => synapse.storage.download({ pieceCid: piece, withCDN: env.synapseEnableCdn }), { signal, attempts: 2 })
+  const gateChain = thread.payload?.gate ? parseGateJson(thread.payload.gate)?.gate.chain : undefined
+  const bytes = await fetchSealed({
+    piece: media.piece,
+    owner: thread.owner,
+    ...(gateChain ? { gateChain } : {}),
+    source: 'fairhaven-web',
+    withCdn: env.synapseEnableCdn,
+    signal,
+    onProgress: (received, total) => onPhase({ s: 'fetching', received, total: media.size ?? total }),
+  })
   onPhase({ s: 'fetching', received: bytes.length, ...(media.size ? { total: media.size } : { total: bytes.length }) })
-  return bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes as ArrayBuffer)
+  return bytes
 }
 
 async function openMediaBytes(thread: ThreadRecord, media: MediaField, stored: Uint8Array, onPhase: (p: Phase) => void, signal: AbortSignal): Promise<Uint8Array> {
@@ -99,7 +104,7 @@ export function openNow(thread: ThreadRecord, media: MediaField): OpenTask {
     promise: (async () => {
       try {
         const stored = media.piece !== undefined
-          ? await fetchSealedBytes(media, ctrl.signal, emit)
+          ? await fetchSealedBytes(media, thread, ctrl.signal, emit)
           : await fetchClearBytes(media, ctrl.signal, emit)
         const opened = await openMediaBytes(thread, media, stored, emit, ctrl.signal)
         setOpened(locator, opened)
