@@ -11,7 +11,7 @@ import { openAny, type MediaField, type ThreadRecord } from '@fairhaven/board-co
 import { hasUnlocked, parseGateJson } from './aol'
 import { fetchResumable } from './retrieve'
 import { fetchSealedBytes as fetchSealed } from './sealed-fetch'
-import { setOpened, getOpened } from './open-cache'
+import { setOpened, getOpened, getSealed, setSealed } from './open-cache'
 import { env } from './env'
 
 export type Phase = { s: 'fetching'; received: number; total?: number } | { s: 'opening'; chunk: number; chunks: number }
@@ -80,9 +80,15 @@ async function openMediaBytes(thread: ThreadRecord, media: MediaField, stored: U
   // Text and media share one AES key per post: unwrap via the post's gate
   // record, then open the framed media bytes with progress.
   const { aesKeyForGate } = await import('./aol')
+  onPhase({ s: 'opening', chunk: 0, chunks: 0 })
   const aesKey = await aesKeyForGate(gateJson)
   if (signal.aborted) throw new DOMException('Open cancelled', 'AbortError')
-  return openAny(stored, aesKey, (p) => onPhase({ s: 'opening', chunk: p.chunk, chunks: p.chunks }), signal)
+  try {
+    return await openAny(stored, aesKey, (p) => onPhase({ s: 'opening', chunk: p.chunk, chunks: p.chunks }), signal)
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') throw e
+    throw new Error(`opening failed: ${e instanceof Error ? e.message : String(e)}`)
+  }
 }
 
 /** Explicit open with progress + cancel. Dedicated to one (thread, media). */
@@ -103,9 +109,15 @@ export function openNow(thread: ThreadRecord, media: MediaField): OpenTask {
     },
     promise: (async () => {
       try {
-        const stored = media.piece !== undefined
-          ? await fetchSealedBytes(media, thread, ctrl.signal, emit)
-          : await fetchClearBytes(media, ctrl.signal, emit)
+        let stored = media.piece !== undefined ? getSealed(locator) : undefined
+        if (!stored) {
+          stored = media.piece !== undefined
+            ? await fetchSealedBytes(media, thread, ctrl.signal, emit)
+            : await fetchClearBytes(media, ctrl.signal, emit)
+          if (media.piece !== undefined) setSealed(locator, stored)
+        } else {
+          emit({ s: 'fetching', received: stored.length, total: stored.length })
+        }
         const opened = await openMediaBytes(thread, media, stored, emit, ctrl.signal)
         setOpened(locator, opened)
         return opened

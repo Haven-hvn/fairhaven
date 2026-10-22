@@ -28,7 +28,19 @@ export function setOpened(locator: string, bytes: Uint8Array, mime?: string): Op
   return entry
 }
 
+const sealedCache = new Map<string, Uint8Array>()
+
+/** Sealed bytes as fetched, kept so a failed open retries without re-downloading. */
+export function getSealed(locator: string): Uint8Array | undefined {
+  return locator ? sealedCache.get(locator) : undefined
+}
+
+export function setSealed(locator: string, bytes: Uint8Array): void {
+  if (locator) sealedCache.set(locator, bytes)
+}
+
 export function clearOpened(): void {
+  sealedCache.clear()
   for (const entry of cache.values()) {
     try {
       URL.revokeObjectURL(entry.url)
