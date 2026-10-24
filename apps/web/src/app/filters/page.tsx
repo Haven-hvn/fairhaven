@@ -41,7 +41,7 @@ export default function FiltersPage() {
                 </div>
               ))}
               <div style={{ marginTop: 4 }}>
-                <input type="text" value={addr} onChange={(e) => setAddr(e.target.value)} placeholder="0x…" style={{ width: 340 }} />{' '}
+                <input type="text" value={addr} onChange={(e) => setAddr(e.target.value)} placeholder="0x…" style={{ width: 'min(340px, calc(100vw - 170px))' }} />{' '}
                 <button disabled={!addrOk} onClick={() => (muteAddress(addr.trim()), setAddr(''))}>
                   Hide
                 </button>
@@ -61,7 +61,7 @@ export default function FiltersPage() {
                 </div>
               ))}
               <div style={{ marginTop: 4 }}>
-                <input type="text" value={spec} onChange={(e) => setSpec(e.target.value)} placeholder="gate:8453:0xTOKEN…:1" style={{ width: 340 }} />{' '}
+                <input type="text" value={spec} onChange={(e) => setSpec(e.target.value)} placeholder="gate:8453:0xTOKEN…:1" style={{ width: 'min(340px, calc(100vw - 170px))' }} />{' '}
                 <button disabled={!specGate} onClick={() => (specGate && muteCommunity(specGate), setSpec(''))}>
                   Hide
                 </button>
