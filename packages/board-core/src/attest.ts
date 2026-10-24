@@ -40,11 +40,11 @@ function gateSpec(gate: BoardGate): string {
 
 // ── Constants ───────────────────────────────────────────────────────────
 
-export const MEMBER_RECEIPT_PREFIX = 'HAVEN_MEMBER_V1'
+export const MEMBER_RECEIPT_PREFIX: 'HAVEN_MEMBER_V1' = 'HAVEN_MEMBER_V1'
 export const ATTEST_PREIMAGE_PREFIX = 'HAVEN_ATTEST_V1'
 export const BATCH_ATTEST_PREIMAGE_PREFIX = 'HAVEN_BATCH_ATTEST_V1'
 /** A receipt is relied upon for at most one epoch after the canister issued it. */
-export const RECEIPT_TTL_SECONDS = EPOCH_LENGTH_SECONDS
+export const RECEIPT_TTL_SECONDS: 2592000 = EPOCH_LENGTH_SECONDS
 /** A receipt may be dated this far after the moment it is relied upon (clock skew + block-time estimate). */
 export const RECEIPT_FUTURE_SLACK_SECONDS = 3600
 

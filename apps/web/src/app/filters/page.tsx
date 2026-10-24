@@ -19,9 +19,9 @@ export default function FiltersPage() {
 
   return (
     <div>
-      <h2 className="subject" style={{ margin: '8px 0 4px' }}>
+      <h1 className="subject" style={{ margin: '8px 0 4px' }}>
         Personal filters
-      </h2>
+      </h1>
       <p className="muted" style={{ margin: '0 0 8px' }}>
         Nobody moderates a board for you. These lists hide posts on this device only. They are never published, never shared, and never change the order of threads: every reader still sees the same index, you just see less of it.
       </p>
@@ -41,7 +41,7 @@ export default function FiltersPage() {
                 </div>
               ))}
               <div style={{ marginTop: 4 }}>
-                <input type="text" value={addr} onChange={(e) => setAddr(e.target.value)} placeholder="0x…" style={{ width: 340 }} />{' '}
+                <input type="text" value={addr} onChange={(e) => setAddr(e.target.value)} placeholder="0x…" style={{ width: 'min(340px, calc(100vw - 170px))' }} />{' '}
                 <button disabled={!addrOk} onClick={() => (muteAddress(addr.trim()), setAddr(''))}>
                   Hide
                 </button>
@@ -61,7 +61,7 @@ export default function FiltersPage() {
                 </div>
               ))}
               <div style={{ marginTop: 4 }}>
-                <input type="text" value={spec} onChange={(e) => setSpec(e.target.value)} placeholder="gate:8453:0xTOKEN…:1" style={{ width: 340 }} />{' '}
+                <input type="text" value={spec} onChange={(e) => setSpec(e.target.value)} placeholder="gate:8453:0xTOKEN…:1" style={{ width: 'min(340px, calc(100vw - 170px))' }} />{' '}
                 <button disabled={!specGate} onClick={() => (specGate && muteCommunity(specGate), setSpec(''))}>
                   Hide
                 </button>

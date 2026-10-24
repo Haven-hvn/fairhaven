@@ -16,6 +16,7 @@ import { pendingProgressLabel } from '@/lib/post'
 import type { QuoteTarget } from '@/components/Body'
 import { ShareLink, threadPath } from '@/components/ShareLink'
 import { RateLimitNotice } from '@/components/RateLimitNotice'
+import { Lock } from '@/components/Icons'
 
 export default function ThreadPage() {
   return (
@@ -73,6 +74,9 @@ function ThreadInner() {
 
   return (
     <div>
+      <h1 className="subject" style={{ margin: '8px 0 2px', textAlign: 'center' }}>
+        /{b.ref.slug}/ – {t.root.subject}
+      </h1>
       <div className="nav" style={{ borderBottom: 0 }}>
         [<Link href={`/board?b=${encodeURIComponent(b.ref.slug)}`}>Return</Link>] [<Link href={`/board?b=${encodeURIComponent(b.ref.slug)}&view=catalog`}>Catalog</Link>] [
         <a href="#" onClick={(e) => (e.preventDefault(), refresh())}>
@@ -97,7 +101,7 @@ function ThreadInner() {
               <div className="meta">
                 <span className="name">you</span> <span className="time">{pendingProgressLabel(p.stage)}</span>
               </div>
-              <div className="body">{p.sealedText ? '🔒 (sealed)' : p.text}</div>
+              <div className="body">{p.sealedText ? <><Lock /> (sealed)</> : p.text}</div>
             </div>
           </div>
         ))}

@@ -6,8 +6,10 @@ import { CHAIN_LABEL, VARIANT_TO_EIP155, type BoardGate } from '@fairhaven/board
 import { useMyMembership, useUnlock } from '@/hooks/useBoard'
 import { useMounted } from '@/hooks/useMounted'
 import { tokenIdentity } from '@/lib/evm'
+import { fmtTokenAmount } from '@/lib/format'
 import { env } from '@/lib/env'
 import { modal } from '@/lib/wallet'
+import { Lock } from './Icons'
 
 export interface FrostAction {
   /** One line under the frost, e.g. "Members only · hold ≥ 1 BACK on Base · connect wallet". */
@@ -31,7 +33,7 @@ export function useFrostAction(gate: BoardGate, state: 'locked' | 'unlocking' | 
   const chainId = VARIANT_TO_EIP155[gate.chain]
   const ident = useQuery({ queryKey: ['ident', chainId, gate.tokenAddress], queryFn: () => tokenIdentity(chainId, gate.tokenAddress), staleTime: Infinity })
   const token = ident.data?.symbol || ident.data?.name || `${gate.tokenAddress.slice(0, 6)}…${gate.tokenAddress.slice(-4)}`
-  const need = `hold ≥ ${gate.threshold.toString()} ${token} on ${CHAIN_LABEL[gate.chain]}`
+  const need = `hold ≥ ${fmtTokenAmount(gate.threshold, ident.data?.decimals)} ${token} on ${CHAIN_LABEL[gate.chain]}`
   const toGate = () => document.getElementById('gate')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 
   // Static until mounted: connection state differs between SSR and browser.
@@ -56,13 +58,13 @@ export function useFrostAction(gate: BoardGate, state: 'locked' | 'unlocking' | 
   if (me.data?.member) {
     return { label: 'Members only · you hold the token', verb: canUnlock ? 'sign to unlock (no gas, once a month)' : 'unlock', run: () => unlock() }
   }
-  return { label: `Members only · you hold ${me.data?.balance.toString() ?? '0'} of ${gate.threshold.toString()} ${token}`, verb: `get ${token}`, run: toGate }
+  return { label: `Members only · you hold ${fmtTokenAmount(me.data?.balance ?? 0n, ident.data?.decimals)} of ${fmtTokenAmount(gate.threshold, ident.data?.decimals)} ${token}`, verb: `get ${token}`, run: toGate }
 }
 
 export function FrostCaptionLine({ action }: { action: FrostAction }) {
   return (
     <div className="frost-caption">
-      🔒 {action.label}
+      <Lock /> {action.label}
       {action.verb && (
         <>
           {' · '}

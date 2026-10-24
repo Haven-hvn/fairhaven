@@ -8,3 +8,5 @@ out/
 .env.local
 .DS_Store
 apps/web/haven-aol/
+
+.taste-skill/

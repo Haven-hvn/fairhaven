@@ -10,7 +10,7 @@
   --time: #555555;
   --postid: #800000;
   --body: #000000;
-  --link: #3473c3;
+  --link: #2b5fae;
   --link-visited: #0f0c5d;
   --green: #4a6610;
   --backlink: #dd0000;
@@ -87,7 +87,7 @@ button:disabled {
 @media (max-width: 768px) {
   .container {
     width: 100%;
-    padding: 4px 6px 24px;
+    padding: 4px 16px 24px;
   }
   button,
   .quote,
@@ -159,13 +159,17 @@ button:disabled {
   padding: 2px 6px;
   white-space: nowrap;
 }
+/* 320px on wide screens; on phones the label column plus padding must still fit. */
 .form input[type='text'],
 .form textarea {
-  width: 320px;
+  width: min(320px, calc(100vw - 170px));
   max-width: 100%;
 }
 .form textarea {
   height: 90px;
+}
+.form input[type='file'] {
+  max-width: calc(100vw - 190px);
 }
 .form .lock {
   font-weight: normal;
@@ -173,7 +177,7 @@ button:disabled {
 }
 .exposure {
   color: var(--time);
-  font-size: 11px;
+  font-size: 12px;
 }
 .exposure b {
   color: var(--body);
@@ -197,8 +201,14 @@ hr {
   float: left;
   margin: 2px 16px 4px 0;
 }
+h1.subject {
+  font-size: 1.5em;
+  margin: 0;
+}
+
 .meta {
   margin: 2px 0;
+  font-variant-numeric: tabular-nums;
 }
 .subject {
   color: var(--subject);
@@ -236,7 +246,7 @@ hr {
   text-decoration: line-through;
 }
 .backlinks {
-  font-size: 11px;
+  font-size: 12px;
   margin: 0 0 0 2px;
 }
 .backlinks a {
@@ -267,7 +277,7 @@ hr {
 }
 .you-tag {
   color: var(--time);
-  font-size: 11px;
+  font-size: 12px;
 }
 .reply.pending {
   opacity: 0.6;
@@ -276,7 +286,7 @@ hr {
 /* Frost: the only non-flat element */
 .frost {
   position: relative;
-  background: repeating-linear-gradient(0deg, var(--frost-stripe) 0 7px, var(--bg) 7px 11px);
+  background: repeating-linear-gradient(0deg, var(--frost-stripe) 0 7px, var(--bg) 7px 11px); /* taste-skill-ignore: frost is the product's documented identity device (docs/UI.md) */
   min-height: 11px;
   overflow: hidden;
 }
@@ -285,14 +295,14 @@ hr {
   position: absolute;
   inset: 0;
   background: var(--frost-veil);
-  backdrop-filter: blur(1.5px);
+  backdrop-filter: blur(1.5px); /* taste-skill-ignore: frost veil, same device */
 }
 .frost.text {
   width: 100%;
 }
 .frost.shimmer::after {
   animation: shimmer 1.4s linear infinite;
-  background: linear-gradient(90deg, var(--frost-veil), rgba(255, 255, 255, 0.85), var(--frost-veil));
+  background: linear-gradient(90deg, var(--frost-veil), rgba(255, 255, 255, 0.85), var(--frost-veil)); /* taste-skill-ignore: frost shimmer, same device */
   background-size: 200% 100%;
 }
 @keyframes shimmer {
@@ -307,12 +317,12 @@ hr {
   position: absolute;
   right: 3px;
   bottom: 1px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--time);
   z-index: 1;
 }
 .frost-caption {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--time);
   margin: 1px 0 3px 2px;
 }
@@ -330,7 +340,7 @@ hr {
   align-items: center;
   justify-content: center;
   color: var(--time);
-  font-size: 11px;
+  font-size: 12px;
   overflow: hidden;
 }
 .tile img {
@@ -345,9 +355,10 @@ hr {
   background: var(--bar);
 }
 .file-info {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--time);
   margin: 0 0 2px 2px;
+  overflow-wrap: anywhere;
 }
 .file-info a {
   color: var(--link);
@@ -448,7 +459,7 @@ video.thumb {
 .catalog .card {
   width: 150px;
   text-align: center;
-  font-size: 11px;
+  font-size: 12px;
 }
 .catalog .card .tile {
   margin: 0 auto 2px;

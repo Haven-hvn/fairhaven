@@ -7,6 +7,7 @@ import { CHAIN_LABEL, VARIANT_TO_EIP155, epochEndUnix, type ResolvedBoard } from
 import { useMyMembership, useUnlock } from '@/hooks/useBoard'
 import { useMounted } from '@/hooks/useMounted'
 import { tokenIdentity } from '@/lib/evm'
+import { fmtTokenAmount } from '@/lib/format'
 import { modal } from '@/lib/wallet'
 import { Mark } from './Mark'
 
@@ -32,7 +33,7 @@ export function GateCard({ board }: { board: ResolvedBoard }) {
   } else if (!isConnected) {
     copy = (
       <>
-        Members hold at least <b>{gate.threshold.toString()} {tokenName}</b> on {CHAIN_LABEL[gate.chain]}.
+        Members hold at least <b>{fmtTokenAmount(gate.threshold, ident.data?.decimals)} {tokenName}</b> on {CHAIN_LABEL[gate.chain]}.
         <small>Anyone can read what members chose to make public. Connect a wallet that holds the token to read and post everything.</small>
         {modal && <button onClick={() => modal?.open()}>Connect wallet</button>}
       </>
@@ -49,7 +50,7 @@ export function GateCard({ board }: { board: ResolvedBoard }) {
   } else if (me.data?.member) {
     copy = (
       <>
-        You hold {me.data.balance.toString()} {tokenName}. <button disabled={!canUnlock || !!busy} onClick={() => unlock()}>{busy ?? 'Unlock for 30 days'}</button>
+        You hold {fmtTokenAmount(me.data.balance, ident.data?.decimals)} {tokenName}. <button disabled={!canUnlock || !!busy} onClick={() => unlock()}>{busy ?? 'Unlock for 30 days'}</button>
         <small>This proves you control this wallet. No transaction, no gas. One signature per month.</small>
         {error && <small className="error">{error}</small>}
       </>
@@ -57,7 +58,7 @@ export function GateCard({ board }: { board: ResolvedBoard }) {
   } else {
     copy = (
       <>
-        You hold {me.data?.balance.toString() ?? '0'} of {gate.threshold.toString()} {tokenName} on {CHAIN_LABEL[gate.chain]}.
+        You hold {fmtTokenAmount(me.data?.balance ?? 0n, ident.data?.decimals)} of {fmtTokenAmount(gate.threshold, ident.data?.decimals)} {tokenName} on {CHAIN_LABEL[gate.chain]}.
         <a href={`https://mint.club/token/${chainId === 8453 ? 'base' : chainId === 1 ? 'mainnet' : chainId === 10 ? 'optimism' : chainId === 42161 ? 'arbitrum' : 'sepolia'}/${gate.tokenAddress}`} target="_blank" rel="noreferrer" style={{ marginLeft: 6 }}>
           Get {tokenName}
         </a>{' '}

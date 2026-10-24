@@ -72,9 +72,9 @@ export default function NewBoardPage() {
 
   return (
     <div>
-      <h2 className="subject" style={{ margin: '8px 0 4px' }}>
+      <h1 className="subject" style={{ margin: '8px 0 4px' }}>
         Define a board
-      </h2>
+      </h1>
       <p className="muted" style={{ margin: '0 0 8px' }}>
         A board already exists for every gate. A definition names it, sets its ordering constants and defaults, and gives it a lifetime. You must hold the gate token. One Arkiv transaction from your wallet.
       </p>
@@ -109,7 +109,7 @@ export default function NewBoardPage() {
                   </option>
                 ))}
               </select>{' '}
-              <input type="text" value={token} onChange={(e) => setToken(e.target.value.trim())} placeholder="0x token (ERC-20 or ERC-721)" style={{ width: 340 }} /> ≥{' '}
+              <input type="text" value={token} onChange={(e) => setToken(e.target.value.trim())} placeholder="0x token (ERC-20 or ERC-721)" style={{ width: 'min(340px, calc(100vw - 260px))' }} /> ≥{' '}
               <input type="text" value={threshold} onChange={(e) => setThreshold(e.target.value.trim())} style={{ width: 80 }} />
               <div className="exposure">
                 Raw <b>balanceOf</b> units. For an 18-decimal ERC-20 “1 token” is 1000000000000000000; thresholds are written as u256, so 18-decimal amounts are fine.

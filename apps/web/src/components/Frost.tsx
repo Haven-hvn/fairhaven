@@ -2,6 +2,7 @@
 
 import { frostLinesFor, type BoardGate } from '@fairhaven/board-core'
 import { FrostCaptionLine, useFrostAction } from './FrostCaption'
+import { ArrowUpRight, Lock, XMark } from './Icons'
 
 /**
  * Frosted placeholder for sealed text. Height ∝ ciphertext bucket, so length
@@ -21,7 +22,7 @@ export function FrostText({ sealedBytes, state, reason, gate }: { sealedBytes: n
         role="button"
         onClick={action.run}
       >
-        <span className="lock">{state === 'failed' ? '✕' : state === 'foreign' ? '↗' : '🔒'}</span>
+        <span className="lock">{state === 'failed' ? <XMark /> : state === 'foreign' ? <ArrowUpRight /> : <Lock />}</span>
       </div>
       <FrostCaptionLine action={action} />
     </div>

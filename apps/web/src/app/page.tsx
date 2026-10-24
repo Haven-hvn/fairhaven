@@ -9,6 +9,7 @@ import { useGlobalFeed } from '@/hooks/useBoard'
 import { RateLimitNotice } from '@/components/RateLimitNotice'
 import { useHidden } from '@/hooks/useHidden'
 import { OpView, ReplyView, type PostContext } from '@/components/Post'
+import { Lock } from '@/components/Icons'
 import { useShallow } from 'zustand/react/shallow'
 import { useSession } from '@/store/session'
 import { pendingProgressLabel } from '@/lib/post'
@@ -46,9 +47,9 @@ function FeedInner() {
 
   return (
     <div>
-      <h2 className="subject" style={{ margin: '8px 0 2px', textAlign: 'center' }}>
+      <h1 className="subject" style={{ margin: '8px 0 2px', textAlign: 'center' }}>
         Fairhaven
-      </h2>
+      </h1>
       <div className="muted" style={{ textAlign: 'center', marginBottom: 6 }}>
         Every board at once. Hold a gate token to open its threads; <Link href="/boards">boards</Link> · <Link href="/new">new board</Link>
       </div>
@@ -75,7 +76,7 @@ function FeedInner() {
             <div className="meta">
               <span className="subject">{p.subject}</span> <span className="time">{pendingProgressLabel(p.stage)}</span>
             </div>
-            <div className="body">{p.sealedText ? '🔒 (sealed)' : p.text}</div>
+            <div className="body">{p.sealedText ? <><Lock /> (sealed)</> : p.text}</div>
           </div>
         </div>
       ))}
@@ -115,7 +116,7 @@ function FeedThread({
   const ctx: PostContext = { board: bParam, gate: item.thread.gate, knownKeys: keys, backlinks: bl, blockToDate, hidden, showStubs, onReplyTo: (k) => onReplyTo(bParam, k), onDeleted }
   return (
     <div className="thread">
-      <div className="muted" style={{ fontSize: 11 }}>
+      <div className="muted" style={{ fontSize: 12 }}>
         <Link href={`/board?b=${encodeURIComponent(bParam)}`}>/{slug}/</Link>
         {board?.title && board.title !== slug ? ` · ${board.title}` : ''}
       </div>

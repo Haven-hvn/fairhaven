@@ -17,6 +17,7 @@ import { pendingProgressLabel } from '@/lib/post'
 import { blurhashDataUrl, mimeLabel } from '@/lib/media'
 import { ShareLink } from '@/components/ShareLink'
 import { RateLimitNotice } from '@/components/RateLimitNotice'
+import { Lock } from '@/components/Icons'
 
 export default function BoardPage() {
   return (
@@ -57,9 +58,9 @@ function BoardInner() {
 
   return (
     <div>
-      <h2 className="subject" style={{ margin: '8px 0 2px', textAlign: 'center' }}>
+      <h1 className="subject" style={{ margin: '8px 0 2px', textAlign: 'center' }}>
         /{b.ref.slug}/ – {b.title} <ShareLink path={`/board?b=${encodeURIComponent(b.ref.slug)}`} title={b.title} label="share" />
-      </h2>
+      </h1>
       {b.def?.about && <div className="muted" style={{ textAlign: 'center' }}>{b.def.about}</div>}
       <GateCard board={b} />
       <PostForm board={b} {...(currentBlock !== undefined ? { currentBlock } : {})} quote={quote} onQuoteConsumed={() => setQuote(null)} onPosted={refresh} />
@@ -79,7 +80,7 @@ function BoardInner() {
             <div className="meta">
               <span className="subject">{p.subject}</span> <span className="time">{pendingProgressLabel(p.stage)}</span>
             </div>
-            <div className="body">{p.sealedText ? '🔒 (sealed)' : p.text}</div>
+            <div className="body">{p.sealedText ? <><Lock /> (sealed)</> : p.text}</div>
           </div>
         </div>
       ))}
@@ -139,7 +140,7 @@ function Catalog({ items, board }: { items: IndexPageItem[]; board: string }) {
               <div className={`tile${m.piece !== undefined ? ' frost' : ''}`}>{hint ? <img src={hint} alt="" /> : <span>{mimeLabel(m.mime) || 'file'}</span>}</div>
             ) : (
               <div className={`tile${it.thread.sealed & 1 ? ' frost' : ''}`}>
-                <span>{it.thread.sealed & 1 ? '🔒' : 'text'}</span>
+                <span>{it.thread.sealed & 1 ? <Lock /> : 'text'}</span>
               </div>
             )}
             <span className="muted">R: {it.folded.replyCount}</span>

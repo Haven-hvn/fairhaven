@@ -70,9 +70,9 @@ function StatsInner() {
         <span className="spacer" />
         <span className="time">write-side facts only; Haven records no reads</span>
       </div>
-      <h2 className="subject" style={{ margin: '8px 0 2px', textAlign: 'center' }}>
+      <h1 className="subject" style={{ margin: '8px 0 2px', textAlign: 'center' }}>
         /{b.ref.slug}/ – statistics
-      </h2>
+      </h1>
       {data.isLoading && <div className="muted">Counting…</div>}
       {data.error && <RateLimitNotice error={data.error} />}
       {data.data && (
@@ -104,7 +104,7 @@ function BoardSection({ b, s }: { b: ResolvedBoard; s: BoardStats }) {
         </tbody>
       </table>
       <div style={{ margin: '8px auto', maxWidth: 560 }}>
-        <div className="muted" style={{ fontSize: 11 }}>Posts per day, last 14 days (threads dark, replies light)</div>
+        <div className="muted" style={{ fontSize: 12 }}>Posts per day, last 14 days (threads dark, replies light)</div>
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 60, borderBottom: '1px solid var(--border)' }}>
           {s.byDay.map((d) => {
             const h = (d.threads + d.replies) / max

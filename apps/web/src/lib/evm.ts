@@ -52,6 +52,8 @@ export interface TokenIdentity {
   name?: string
   /** Collection icon / avatar URL when the gate token publishes one. */
   image?: string
+  /** ERC-20 decimals, when the contract publishes them. */
+  decimals?: number
 }
 
 /** Best-effort ERC-20/721 identity for display. Never throws. */
@@ -65,14 +67,17 @@ export async function tokenIdentity(chainId: number, token: string): Promise<Tok
     const erc20 = [
       { type: 'function', name: 'symbol', stateMutability: 'view', inputs: [], outputs: [{ type: 'string' }] },
       { type: 'function', name: 'name', stateMutability: 'view', inputs: [], outputs: [{ type: 'string' }] },
+      { type: 'function', name: 'decimals', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint8' }] },
     ] as const
-    const [symbol, name] = await Promise.all([
+    const [symbol, name, decimals] = await Promise.all([
       client.readContract({ address, abi: erc20, functionName: 'symbol' }).catch(() => undefined),
       client.readContract({ address, abi: erc20, functionName: 'name' }).catch(() => undefined),
+      client.readContract({ address, abi: erc20, functionName: 'decimals' }).catch(() => undefined),
     ])
     return {
       ...(typeof symbol === 'string' && symbol ? { symbol } : {}),
       ...(typeof name === 'string' && name ? { name } : {}),
+      ...(typeof decimals === 'number' && Number.isInteger(decimals) && decimals >= 0 ? { decimals } : {}),
     }
   } catch {
     return {}

@@ -6,6 +6,7 @@ import { TEXT_MAX_BYTES, SUBJECT_MAX_BYTES, utf8Bytes, type ResolvedBoard, type 
 import { useMyMembership } from '@/hooks/useBoard'
 import { submitReply, submitThread, writeProgressLabel, type WriteProgress } from '@/lib/post'
 import { useSession } from '@/store/session'
+import { Lock } from './Icons'
 
 export interface PostFormProps {
   board: ResolvedBoard
@@ -113,7 +114,7 @@ export function PostForm({ board, root, currentBlock, quote, onQuoteConsumed, on
           <td>
             Comment
             <label className="lock">
-              <input type="checkbox" checked={sealText} onChange={(e) => setSealText(e.target.checked)} /> 🔒
+              <input type="checkbox" checked={sealText} onChange={(e) => setSealText(e.target.checked)} /> <Lock />
             </label>
           </td>
           <td>
@@ -128,7 +129,7 @@ export function PostForm({ board, root, currentBlock, quote, onQuoteConsumed, on
             <td>
               File
               <label className="lock">
-                <input type="checkbox" checked={sealMedia} onChange={(e) => setSealMedia(e.target.checked)} /> 🔒
+                <input type="checkbox" checked={sealMedia} onChange={(e) => setSealMedia(e.target.checked)} /> <Lock />
               </label>
             </td>
             <td>

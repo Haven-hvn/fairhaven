@@ -15,9 +15,9 @@ export default function BoardsPage() {
 
   return (
     <div>
-      <h2 className="subject" style={{ margin: '8px 0 4px' }}>
+      <h1 className="subject" style={{ margin: '8px 0 4px' }}>
         Boards
-      </h2>
+      </h1>
       <p className="muted" style={{ margin: '0 0 8px' }}>
         A board is a Haven gate. Hold the token, read and post everything; otherwise see what members made public. Anything other Haven apps publish under a gate shows up as a thread. The <Link href="/">front page</Link> is every board at once.
       </p>

@@ -6,7 +6,8 @@
 export const GRP_DEF = 'haven.board.def'
 export const GRP_THREAD = 'haven.board.thread'
 export const GRP_POST = 'haven.board.post'
-export const BOARD_GROUPS = [GRP_DEF, GRP_THREAD, GRP_POST] as const
+export type BoardGroup = 'haven.board.def' | 'haven.board.thread' | 'haven.board.post'
+export const BOARD_GROUPS: readonly ['haven.board.def', 'haven.board.thread', 'haven.board.post'] = [GRP_DEF, GRP_THREAD, GRP_POST]
 
 /**
  * Haven media records that other Haven apps publish (haven-cli, haven-dapp,
@@ -24,10 +25,10 @@ export const HAVEN_FULL_GROUPS = [
 export type HavenFullGroup = (typeof HAVEN_FULL_GROUPS)[number]
 
 /** Payload format version written in every board payload. */
-export const PAYLOAD_VERSION = 1
+export const PAYLOAD_VERSION: 1 = 1
 
 /** Boards always use the Haven-AOL v3 (epoch corpus) gate. */
-export const GATE_TYPE_V3 = 3
+export const GATE_TYPE_V3: 3 = 3
 
 /** Haven-AOL epoch length, seconds. Mirrors `haven-aol` `EPOCH_LENGTH_SECONDS`. */
 export const EPOCH_LENGTH_SECONDS = 2_592_000
@@ -36,35 +37,35 @@ export const EPOCH_LENGTH_SECONDS = 2_592_000
 export const BLOCK_TIME_S = 2
 
 /** `sealed` attribute bitmask. */
-export const SEALED_TEXT = 1
-export const SEALED_MEDIA = 2
+export const SEALED_TEXT: 1 = 1
+export const SEALED_MEDIA: 2 = 2
 
 /** Limits. */
 export const TEXT_MAX_BYTES = 4096
 export const SUBJECT_MAX_BYTES = 128
 export const TITLE_MAX_BYTES = 128
 export const BOARD_SLUG_MAX_BYTES = 64
-export const PAYLOAD_MAX_BYTES = 128 * 1024
-export const MEDIA_MAX_BYTES = 25 * 1024 * 1024
+export const PAYLOAD_MAX_BYTES: number = 128 * 1024
+export const MEDIA_MAX_BYTES: number = 25 * 1024 * 1024
 
 /** Zero-padding buckets for sealed text plaintext (bytes). */
 export const PAD_BUCKETS = [256, 1024, 4096] as const
 export const PAD_STEP = 4096
 
 /** Haven framed AES-GCM layout. */
-export const FRAME_BASE_IV_BYTES = 12
-export const FRAME_HEADER_BYTES = 8
-export const FRAME_CHUNK_PLAINTEXT_BYTES = 1024 * 1024
-export const FRAME_MAX_CHUNK_BYTES = 64 * 1024 * 1024
+export const FRAME_BASE_IV_BYTES: 12 = 12
+export const FRAME_HEADER_BYTES: 8 = 8
+export const FRAME_CHUNK_PLAINTEXT_BYTES: number = 1024 * 1024
+export const FRAME_MAX_CHUNK_BYTES: number = 64 * 1024 * 1024
 export const GCM_TAG_BYTES = 16
 
 /** Board defaults (board definitions may override). */
-export const DEFAULT_BUMP_LIMIT = 300
-export const DEFAULT_CAPACITY = 150
-export const DEFAULT_PAGE_SIZE = 15
-export const DEFAULT_DEF_TTL_S = 30 * 24 * 3600
-export const DEFAULT_THREAD_TTL_S = 14 * 24 * 3600
-export const DEFAULT_POST_TTL_S = 7 * 24 * 3600
+export const DEFAULT_BUMP_LIMIT: 300 = 300
+export const DEFAULT_CAPACITY: 150 = 150
+export const DEFAULT_PAGE_SIZE: 15 = 15
+export const DEFAULT_DEF_TTL_S: number = 30 * 24 * 3600
+export const DEFAULT_THREAD_TTL_S: number = 14 * 24 * 3600
+export const DEFAULT_POST_TTL_S: number = 7 * 24 * 3600
 
 /** Replies rendered under an OP on the index (head-and-tail digest). */
 export const INDEX_TAIL_REPLIES = 3
