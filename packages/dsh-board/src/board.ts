@@ -44,6 +44,9 @@ import {
   receiptRemaining,
   verifyRecordAuthor,
   type MemberReceipt,
+  type BoardDefaults,
+  type BoardTtl,
+  type ChainVariant,
   gateVersionOf,
   globalPage,
   indexPage,
@@ -84,6 +87,70 @@ import { describeAttestError, liveAttestClient, type AttestClient } from './atte
 export type { AttestClient } from './attest-client.ts'
 
 // ── Seams ───────────────────────────────────────────────────────────────
+
+/**
+ * Explicit return types for the public read/write methods. tsdown's Oxc-based
+ * .d.ts emit (isolatedDeclarations) requires every exported signature to be
+ * annotated; these mirror the shapes the methods have always returned.
+ */
+export interface DshBoardSummary {
+  board: string
+  title: string
+  about: string
+  gate: { chain: ChainVariant; chainId: number; token: string; threshold: string }
+  bumpLimit: number
+  capacity: number
+  pageSize: number
+  defaults: BoardDefaults
+  ttl: BoardTtl
+  owner: string
+  createdAt: number
+  expiresAt?: number
+}
+
+export interface DshIndexThreadItem {
+  key: string
+  source: 'board' | 'haven'
+  grp: string
+  subject: string
+  owner: string
+  you: boolean
+  createdAt: number
+  expiresAt?: number
+  bumpAt: number
+  replies: number
+  sealed: number
+  gateVersion: 0 | 1 | 3 | 4
+  mime: number
+  tail: Array<{ key: string; owner: string; createdAt: number; sealed: number; noBump: boolean }>
+}
+
+export interface DshIndexPage {
+  board: string
+  title: string
+  gate: string
+  page: number
+  pages: number
+  currentBlock?: number
+  threads: DshIndexThreadItem[]
+  rejected: RejectedPost[]
+  hidden: Array<{ key: string; owner: string; reason: string }>
+}
+
+export interface DshFeedPage {
+  page: number
+  pages: number
+  gates: number
+  currentBlock?: number
+  threads: Array<Record<string, unknown>>
+  rejected: RejectedPost[]
+  hidden: Array<{ key: string; owner: string; reason: string }>
+}
+
+export interface DshWriteResult {
+  key: string
+  txHash: string
+}
 
 export interface WalletSeam {
   address(name: string): Promise<string>
@@ -426,7 +493,7 @@ export class BoardRuntime {
 
   // ── Reads ───────────────────────────────────────────────────────────
 
-  async listBoards() {
+  async listBoards(): Promise<DshBoardSummary[]> {
     const boards = await loadBoards(await this.store())
     return boards.map((b) => ({
       board: b.board,
@@ -450,7 +517,7 @@ export class BoardRuntime {
     return b
   }
 
-  async index(slugOrGate: string, page = 1) {
+  async index(slugOrGate: string, page = 1): Promise<DshIndexPage> {
     const store = await this.store()
     const board = await this.resolve(slugOrGate)
     const current = await store.currentBlock()
@@ -503,7 +570,7 @@ export class BoardRuntime {
     }
   }
 
-  async feed(page = 1) {
+  async feed(page = 1): Promise<DshFeedPage> {
     const store = await this.store()
     const current = await store.currentBlock()
     const idx = await loadGlobalIndex(store, { ...(current !== undefined ? { currentBlock: current } : {}) })
@@ -779,7 +846,7 @@ export class BoardRuntime {
     return { gateJson, textField, textBytes, mediaBytes, sha256Ct: await sha256Hex(textBytes) }
   }
 
-  async createBoard(a: { board: string; title: string; about?: string; gate: BoardGate; bumpLimit?: number; capacity?: number; pageSize?: number; sealText?: boolean; sealMedia?: boolean; threadTtlS?: number; postTtlS?: number; expiresIn?: number }) {
+  async createBoard(a: { board: string; title: string; about?: string; gate: BoardGate; bumpLimit?: number; capacity?: number; pageSize?: number; sealText?: boolean; sealMedia?: boolean; threadTtlS?: number; postTtlS?: number; expiresIn?: number }): Promise<DshWriteResult> {
     return this.spend('create', async () => {
       await this.receiptFor(a.gate) // proves membership; a def payload carries no attn
       const w = buildDefWrite({
@@ -798,7 +865,7 @@ export class BoardRuntime {
     })
   }
 
-  async postThread(a: { board: string; subject: string; text: string; sealText?: boolean; media?: { bytes: Uint8Array; mime: string; name?: string }; sealMedia?: boolean }) {
+  async postThread(a: { board: string; subject: string; text: string; sealText?: boolean; media?: { bytes: Uint8Array; mime: string; name?: string }; sealMedia?: boolean }): Promise<DshWriteResult> {
     const board = await this.resolve(a.board)
     return this.spend('post', async () => {
       const attn = await this.receiptFor(board.ref.gate)
@@ -827,7 +894,7 @@ export class BoardRuntime {
     })
   }
 
-  async reply(a: { board: string; root: string; text: string; parent?: string; noBump?: boolean; sealText?: boolean }) {
+  async reply(a: { board: string; root: string; text: string; parent?: string; noBump?: boolean; sealText?: boolean }): Promise<DshWriteResult> {
     const store = await this.store()
     const board = await this.resolve(a.board)
     const current = await store.currentBlock()

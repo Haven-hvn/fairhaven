@@ -7,6 +7,7 @@ import { parseGateJson } from '@/lib/aol'
 import { env } from '@/lib/env'
 import { useSession } from '@/store/session'
 import { FrostCaptionLine, useFrostAction } from './FrostCaption'
+import { Lock } from './Icons'
 import { ComicReader } from './ComicReader'
 import { getOpened } from '@/lib/open-cache'
 import { canOpenNow, inFlight, openNow, type Phase } from '@/lib/prefetch'
@@ -88,7 +89,7 @@ export function MediaView({ thread, media, compact }: { thread: ThreadRecord; me
     attach()
   }
 
-  const label = `${mimeLabel(media.mime)}${media.size ? ` · ${formatBytes(media.size)}` : ''}${media.name ? ` · ${media.name}` : ''}`
+  const label = [mimeLabel(media.mime), media.size ? formatBytes(media.size) : '', media.name ?? ''].filter(Boolean).join(' · ')
   const hint = media.hint ? blurhashDataUrl(media.hint) : undefined
   const busy = st.s === 'busy'
   const frostState = foreign ? 'foreign' : st.s === 'error' ? 'failed' : busy ? 'unlocking' : 'locked'
@@ -204,7 +205,7 @@ export function MediaView({ thread, media, compact }: { thread: ThreadRecord; me
       role="button"
     >
       {hint ? <img src={hint} alt="" /> : <span>{mimeLabel(media.mime) || 'file'}</span>}
-      {locked && <span className="lock">🔒</span>}
+      {locked && <span className="lock"><Lock /></span>}
       {foreign && <span className="lock">↗</span>}
     </div>
   )

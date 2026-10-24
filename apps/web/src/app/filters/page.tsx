@@ -19,9 +19,9 @@ export default function FiltersPage() {
 
   return (
     <div>
-      <h2 className="subject" style={{ margin: '8px 0 4px' }}>
+      <h1 className="subject" style={{ margin: '8px 0 4px' }}>
         Personal filters
-      </h2>
+      </h1>
       <p className="muted" style={{ margin: '0 0 8px' }}>
         Nobody moderates a board for you. These lists hide posts on this device only. They are never published, never shared, and never change the order of threads: every reader still sees the same index, you just see less of it.
       </p>

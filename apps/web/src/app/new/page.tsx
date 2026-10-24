@@ -72,9 +72,9 @@ export default function NewBoardPage() {
 
   return (
     <div>
-      <h2 className="subject" style={{ margin: '8px 0 4px' }}>
+      <h1 className="subject" style={{ margin: '8px 0 4px' }}>
         Define a board
-      </h2>
+      </h1>
       <p className="muted" style={{ margin: '0 0 8px' }}>
         A board already exists for every gate. A definition names it, sets its ordering constants and defaults, and gives it a lifetime. You must hold the gate token. One Arkiv transaction from your wallet.
       </p>

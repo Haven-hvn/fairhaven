@@ -29,11 +29,11 @@ frost itself is clickable to do it. The caption adapts to the viewer:
 
 | Viewer | Caption | Click |
 |---|---|---|
-| No wallet | 🔒 Members only · hold ≥ 1 BACK on Base · **connect wallet** | opens wallet modal |
-| Holder, not unlocked | 🔒 Members only · you hold the token · **sign to unlock (no gas, once a month)** | signs GateRequestV3 |
-| Not a holder | 🔒 Members only · you hold 0 of 1 BACK · **get BACK** | scrolls to the gate card |
-| Sealed by v1/v4 Haven app | 🔒 Sealed by another Haven app (v4) · **open in haven-dapp** | new tab |
-| Failed | 🔒 Could not open: … · **retry** | re-runs unlock |
+| No wallet | lock glyph · Members only · hold ≥ 1 BACK on Base · **connect wallet** | opens wallet modal |
+| Holder, not unlocked | lock glyph · Members only · you hold the token · **sign to unlock (no gas, once a month)** | signs GateRequestV3 |
+| Not a holder | lock glyph · Members only · you hold 0 of 1 BACK · **get BACK** | scrolls to the gate card |
+| Sealed by v1/v4 Haven app | lock glyph · Sealed by another Haven app (v4) · **open in haven-dapp** | new tab |
+| Failed | lock glyph · Could not open: … · **retry** | re-runs unlock |
 
 Frost means "encrypted", never "please buy": clear text is public on Arkiv and is shown
 as such. A board that wants nothing public sets both sealing defaults on.
