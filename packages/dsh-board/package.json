@@ -35,7 +35,7 @@
     "@fairhaven/board-core": "workspace:*",
     "@arkiv-network/sdk": "=0.8.1",
     "@icp-sdk/core": "^6.1.1",
-    "viem": "=2.57.11"
+    "viem": "=2.57.12"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "~4.0.5-alpha.2",
