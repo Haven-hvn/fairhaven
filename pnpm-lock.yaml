@@ -51,8 +51,8 @@ importers:
         specifier: 2.0.0-wagmi-3.0
         version: 2.0.0-wagmi-3.0(@react-native-async-storage/async-storage@3.1.1(react@19.3.1))(@solana/kit@5.5.1(typescript@7.0.2))(@solana/sysvars@5.5.1(typescript@7.0.2))(@types/react@19.3.0)(ethers@6.17.0)(react@19.3.1)(typescript@7.0.2)(use-sync-external-store@1.4.0(react@19.3.1))(zod@4.6.7)
       '@reown/appkit-adapter-wagmi':
-        specifier: 2.0.0-wagmi-3.0
-        version: 2.0.0-wagmi-3.0(67074d0dfccc245a806426e68a46386d)
+        specifier: 2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0
+        version: 2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(67074d0dfccc245a806426e68a46386d)
       '@tanstack/react-query':
         specifier: 5.104.5
         version: 5.104.5(@types/react@19.3.0)(react@19.3.1)
@@ -183,8 +183,8 @@ packages:
   '@base-org/account@2.4.0':
     resolution: {integrity: sha512-A4Umpi8B9/pqR78D1Yoze4xHyQaujioVRqqO3d6xuDFw9VRtjg6tK3bPlwE0aW+nVH/ntllCpPa2PbI8Rnjcug==}
 
-  '@coinbase/cdp-sdk@1.58.0':
-    resolution: {integrity: sha512-AH3Iifi8TgQHdGX+h2oEwXc417tBbk59ch3LT0uA3JwaCCksaFeD4ozxDFEGbDIbwFGZKX8fSEN89SjRF+IHgA==}
+  '@coinbase/cdp-sdk@1.60.0':
+    resolution: {integrity: sha512-cW0KbfcFUJb0oedDiUfxC6kjPBsWxHds2vNFfgDfNYv/MFtbaJBvDqRxkXCUi0Np+9p5W/o6BLfL1yXuWNnQqg==}
     peerDependencies:
       '@x402/core': ^2.25.0
       '@x402/evm': ^2.25.0
@@ -608,37 +608,64 @@ packages:
       react: '*'
       react-native: '*'
 
-  '@reown/appkit-adapter-wagmi@2.0.0-wagmi-3.0':
-    resolution: {integrity: sha512-W4AqRU0cacNwjhul229HWrnqodIpiOTEge9B0RDx6Fg7aJWx12xPjTMpB20VAxJowwZkZEUtyUeXO+W77Sp6vg==}
+  '@reown/appkit-adapter-wagmi@2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0':
+    resolution: {integrity: sha512-ixs9jYbVJQa/xXSk+vw63Mw6MVPpbLdPNdbAdQ+yFANXW7kjhStnV41uRxMl400yHKB/98NTCQ1mNVhZo4JxSA==}
     peerDependencies:
       '@wagmi/connectors': '>=8.0.0'
       '@wagmi/core': '>=3.0.0'
       viem: '>=2.55.13'
       wagmi: '>=3.0.0'
 
+  '@reown/appkit-common@2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0':
+    resolution: {integrity: sha512-VP3KIgN+GI0p+6maNaio3Dyq2IRA7lbMA/kSed32ytKFD/VMK9j6aUz8DGd866Mfhzvc56WMPP1/3vUnzr5uRg==}
+
   '@reown/appkit-common@2.0.0-wagmi-3.0':
     resolution: {integrity: sha512-Y4iD+YI8PtEupyJEV2MPmSjV6JjIkxKPSWuhvYnijCuB5HKfsFTumdoQMgN7QNSzaWc5+ad8Blnv9LMl1n8HQA==}
+
+  '@reown/appkit-controllers@2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0':
+    resolution: {integrity: sha512-J/vvHGVRS7GAX8u3ADaoNyMVurewg+M29Y5CzGqTHrGhD+Wp0JrcLHjgUM4fa4aINYHCAZAwJ6/oX9bgWkY98g==}
 
   '@reown/appkit-controllers@2.0.0-wagmi-3.0':
     resolution: {integrity: sha512-bGXH6+Cw4feVTBp4VrDrZSpCbWLVoSFxiRWqVpEKqHxd/QEu/OPb2Fa2tKILC9B9OdTM+dOwL8IZikkABC1W9g==}
 
+  '@reown/appkit-pay@2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0':
+    resolution: {integrity: sha512-Ekk5UNhUJOS71SaMpFhQqKDKfYl+sbqv+cePF9xXd00KBX3owL11ryCPDqWzorp2iFFtY3heiRVSsPYdTJP/3A==}
+
   '@reown/appkit-pay@2.0.0-wagmi-3.0':
     resolution: {integrity: sha512-xuD4NB0vf5ItidOOspW/fPERPzXQXE4P6TsdabHwIyshPC0acfDw5ubI1rMLGEe43a0abv564F5WNZdWmZ5EXw==}
+
+  '@reown/appkit-polyfills@2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0':
+    resolution: {integrity: sha512-NgYc5A5E11vLmrR16WNbFzLNp9wGGd6HJbtyloy9LJpW2d6tRwh8Z2DnpvCl8L9f7JDAfCKoCPI40oowpv50XA==}
 
   '@reown/appkit-polyfills@2.0.0-wagmi-3.0':
     resolution: {integrity: sha512-NLGnYNcIdoVFLHhqvLHyRdCAj9unkZH+0GNEUSfOnfE76NaNhmL8Y6fsNHtgouEPPTcvomHEym73C98hV78u5Q==}
 
+  '@reown/appkit-scaffold-ui@2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0':
+    resolution: {integrity: sha512-vD+NY9Dczf7RCsbJIGPzltprTQjv9+BquDAi2UJAUDYGusDnnwsOkBEmSOkATa27li7u4HlrD4QyR+y7U7DgVw==}
+
   '@reown/appkit-scaffold-ui@2.0.0-wagmi-3.0':
     resolution: {integrity: sha512-qaTpFUowlt/U6QdlLjaj/VKRe49a88B9/fiaU+Pcij7kP81bwbQpmbF0+zc8IFoMRl6CXye8H6h725g6VQScew==}
+
+  '@reown/appkit-ui@2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0':
+    resolution: {integrity: sha512-gebGgDNYnBqUcGB4duCmeXJ4Jvg3Y5l3JMChWdNJ6TEnlVCLR3i2Xf2cxD99qOGQHKYGweUOorZGgaAqCQFVKQ==}
 
   '@reown/appkit-ui@2.0.0-wagmi-3.0':
     resolution: {integrity: sha512-gnyAObIJJN6EmssBzi5etD/FVvTkuwzXMsfu6Y7hsoYjlLrFIyUlCxvG3fPWZz8YQ+PUBRXINANNVOHwlW8cFw==}
 
+  '@reown/appkit-utils@2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0':
+    resolution: {integrity: sha512-cTd4HlI7XGZZbr1slvr+9m/4KVwKWjpjt4dipV7VAwrkyDLfk4qjX+z4t9Hy8AWFLwRPjNrfhXpBVky87FcVzQ==}
+
   '@reown/appkit-utils@2.0.0-wagmi-3.0':
     resolution: {integrity: sha512-ry6+/NTqk4cMuMUHmi0TNX3jpzwzKsZZCPI0J8fhyfEA3eU0Z+RKRf0chnLTRhojASEahAeQUImgWcgZ0fd9hQ==}
 
+  '@reown/appkit-wallet@2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0':
+    resolution: {integrity: sha512-+tY+BbaajMLDi3dYu2woeIeQlMjRWGcI9nvnWrB2vP51AMJv9xAtQHieAjSz9OLilBhmoBvyk121vVxMR76TzQ==}
+
   '@reown/appkit-wallet@2.0.0-wagmi-3.0':
     resolution: {integrity: sha512-SkCpvhShp1tnBaFovmyyGuqCgKLfIXDsbbw9vOk32anoamxmYDbfCCOxUZDY20BN+9jLDxa7PTxCUq2A6LTrnA==}
+
+  '@reown/appkit@2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0':
+    resolution: {integrity: sha512-gtnoW2yiI8s+JNbUzudAN7H/cHs0gZwgtaONUE2GExStBdt3r0tA9Jbl4zB4FRJkkDYQOfSHoFgCoLDUpiFonw==}
 
   '@reown/appkit@2.0.0-wagmi-3.0':
     resolution: {integrity: sha512-jBD9e5NgBvF/1dRkJ8iU8JyITNioUM5mJPJmZCPqfkjdGkYSHXKVed+K2lxsVr7G9C+1eeYbuHfEU49s47BNxg==}
@@ -1725,8 +1752,8 @@ packages:
     peerDependencies:
       axios: 0.x || 1.x
 
-  axios@1.20.0:
-    resolution: {integrity: sha512-r8aOh8j9cGKpgQAqpzrUHnSIc6a59Y3Xf/cv8sy1DrHCkZHzQGEuoq1tARk6qSyDdtQGSDgpb9kFlruzPvrgwg==}
+  axios@1.21.0:
+    resolution: {integrity: sha512-YCzXMB53Q9PZBsh7yN7wtapit4WepwcHS2fP8QhGsBxSz5YtgYobV7GGlWlAJi+RxfU77GQTQi2DSLUma42EYA==}
 
   base-x@5.0.1:
     resolution: {integrity: sha512-M7uio8Zt++eg3jPj+rHMfCC+IuygQHHCOU+IYsVtik6FWjuYpVt/+MRKcgsAMHh8mMFAwnB+Bs+mTrFiXjMzKg==}
@@ -1957,8 +1984,8 @@ packages:
   fast-deep-equal@3.1.3:
     resolution: {integrity: sha512-f3qQ9oQy9j2AhBe/H9VC91wLmKBCCU/gDOnKNAYG5hswO7BLKj09Hc5HYNz9cGI++xlpDCIgDaitVs03ATR84Q==}
 
-  fast-uri@3.1.8:
-    resolution: {integrity: sha512-GZMtZUTNRpOVIECoXwLNZS5xUGE+mVNbTB8h/7Rwh2TFWcBQiPzTgyZi05BF9UMZKkLJv8XBRJTlU7zg8+ZfMg==}
+  fast-uri@3.1.9:
+    resolution: {integrity: sha512-hS/0Wt3Ya043oKXs0sIxrMpKQITXhMLIrVAKKXi4gozGC9v7YRWVnXIZzjNPTO02M9BdxLCWqK1yRXgNziVyJQ==}
 
   fdir@6.5.0:
     resolution: {integrity: sha512-tIbYtZbucOs0BRGqPJkshJUYdL+SDH7dVM8gjy+ERp3WAUjLEFJE+02kanyHtwjWOnwrKYBiwAmM0p4kLJAnXg==}
@@ -1976,8 +2003,8 @@ packages:
     resolution: {integrity: sha512-PpOwAdQ/YlXQ2vj8a3h8IipDuYRi3wceVQQGYWxNINccq40Anw7BlsEXCMbt1Zt+OLA6Fq9suIpIWD0OsnISlw==}
     engines: {node: '>=8'}
 
-  follow-redirects@1.16.1:
-    resolution: {integrity: sha512-FNvFGzoMLWmE6Yj9spb/zjd7yiNCHiAW9/Tg9CXrQ8wuu32HtlJOwWO11OJafl5FfY3DxTdQ0vj42zU1kvv5jg==}
+  follow-redirects@1.16.2:
+    resolution: {integrity: sha512-/kVP2U8z596Ia0gwFrwyIeo74ta5aVmSeU1FfAUMAmcEP5EP7zydmag3SLiN64NaRKef3lxsq7i/g7ltJQDGow==}
     engines: {node: '>=4.0'}
     peerDependencies:
       debug: '*'
@@ -2093,8 +2120,8 @@ packages:
   jose@5.10.0:
     resolution: {integrity: sha512-s+3Al/p9g32Iq+oqXxkW//7jk2Vig6FF1CFqzVXoTUXt2qz89YWbL+OwS17NFYEvxC35n0FKeGO2LGYSxeM2Gg==}
 
-  jose@6.2.12:
-    resolution: {integrity: sha512-9NiFmJEex0sy2Dk58j2UGBSHgUs2ypF9eZSu4L6vjOX3Dp96Sw1F3uL+H+D1sx02jZZdzUT0HgvCy59CuvXcWw==}
+  jose@6.2.13:
+    resolution: {integrity: sha512-7TIg10ZE1x82YediN+lcrPNvGMKge9yFHQD+Qho/b8y2adfugU3AsvvHfxV0fzyFllT6l9xCjf4RWY9g/Z9PJQ==}
 
   json-schema-traverse@1.0.0:
     resolution: {integrity: sha512-NM8/P9n3XjXhIZn1lLhkFaACTOURQXjWhV4BA/RnOv8xvgqtqpAX9IO4mRQxSx1Rlo4tqzeqb0sOlruaOy3dug==}
@@ -3053,14 +3080,14 @@ snapshots:
 
   '@base-org/account@2.4.0(@types/react@19.3.0)(@x402/core@2.27.0)(@x402/evm@2.27.0(typescript@7.0.2))(@x402/extensions@2.27.0(ethers@6.17.0)(typescript@7.0.2))(@x402/svm@2.27.0(@solana/kit@5.5.1(typescript@7.0.2))(@solana/sysvars@5.5.1(typescript@7.0.2)))(react@19.3.1)(typescript@7.0.2)(use-sync-external-store@1.4.0(react@19.3.1))(zod@4.6.7)':
     dependencies:
-      '@coinbase/cdp-sdk': 1.58.0(@x402/core@2.27.0)(@x402/evm@2.27.0(typescript@7.0.2))(@x402/extensions@2.27.0(ethers@6.17.0)(typescript@7.0.2))(@x402/svm@2.27.0(@solana/kit@5.5.1(typescript@7.0.2))(@solana/sysvars@5.5.1(typescript@7.0.2)))(typescript@7.0.2)
+      '@coinbase/cdp-sdk': 1.60.0(@x402/core@2.27.0)(@x402/evm@2.27.0(typescript@7.0.2))(@x402/extensions@2.27.0(ethers@6.17.0)(typescript@7.0.2))(@x402/svm@2.27.0(@solana/kit@5.5.1(typescript@7.0.2))(@solana/sysvars@5.5.1(typescript@7.0.2)))(typescript@7.0.2)
       '@noble/hashes': 1.4.0
       clsx: 1.2.1
       eventemitter3: 5.0.1
       idb-keyval: 6.2.1
       ox: 0.6.9(typescript@7.0.2)(zod@4.6.7)
       preact: 10.24.2
-      viem: 2.57.0(typescript@7.0.2)(zod@4.6.7)
+      viem: 2.57.11(typescript@7.0.2)(zod@4.6.7)
       zustand: 5.0.3(@types/react@19.3.0)(react@19.3.1)(use-sync-external-store@1.4.0(react@19.3.1))
     transitivePeerDependencies:
       - '@types/react'
@@ -3080,19 +3107,19 @@ snapshots:
       - zod
     optional: true
 
-  '@coinbase/cdp-sdk@1.58.0(@x402/core@2.27.0)(@x402/evm@2.27.0(typescript@7.0.2))(@x402/extensions@2.27.0(ethers@6.17.0)(typescript@7.0.2))(@x402/svm@2.27.0(@solana/kit@5.5.1(typescript@7.0.2))(@solana/sysvars@5.5.1(typescript@7.0.2)))(typescript@7.0.2)':
+  '@coinbase/cdp-sdk@1.60.0(@x402/core@2.27.0)(@x402/evm@2.27.0(typescript@7.0.2))(@x402/extensions@2.27.0(ethers@6.17.0)(typescript@7.0.2))(@x402/svm@2.27.0(@solana/kit@5.5.1(typescript@7.0.2))(@solana/sysvars@5.5.1(typescript@7.0.2)))(typescript@7.0.2)':
     dependencies:
       '@solana-program/system': 0.10.0(@solana/kit@5.5.1(typescript@7.0.2))
       '@solana-program/token': 0.9.0(@solana/kit@5.5.1(typescript@7.0.2))
       '@solana/kit': 5.5.1(typescript@7.0.2)
       abitype: 1.0.6(typescript@7.0.2)(zod@3.25.76)
-      axios: 1.20.0
-      axios-retry: 4.5.0(axios@1.20.0)
+      axios: 1.21.0
+      axios-retry: 4.5.0(axios@1.21.0)
       bs58: 6.0.0
-      jose: 6.2.12
+      jose: 6.2.13
       md5: 2.3.0
       uncrypto: 0.1.3
-      viem: 2.57.0(typescript@7.0.2)(zod@3.25.76)
+      viem: 2.57.11(typescript@7.0.2)(zod@3.25.76)
       zod: 3.25.76
     optionalDependencies:
       '@x402/core': 2.27.0
@@ -3116,7 +3143,7 @@ snapshots:
       idb-keyval: 6.2.1
       ox: 0.6.9(typescript@7.0.2)(zod@4.6.7)
       preact: 10.24.2
-      viem: 2.57.0(typescript@7.0.2)(zod@4.6.7)
+      viem: 2.57.11(typescript@7.0.2)(zod@4.6.7)
       zustand: 5.0.3(@types/react@19.3.0)(react@19.3.1)(use-sync-external-store@1.4.0(react@19.3.1))
     transitivePeerDependencies:
       - '@types/react'
@@ -3456,15 +3483,15 @@ snapshots:
       idb: 8.0.3
       react: 19.3.1
 
-  '@reown/appkit-adapter-wagmi@2.0.0-wagmi-3.0(67074d0dfccc245a806426e68a46386d)':
+  '@reown/appkit-adapter-wagmi@2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(67074d0dfccc245a806426e68a46386d)':
     dependencies:
-      '@reown/appkit': 2.0.0-wagmi-3.0(@react-native-async-storage/async-storage@3.1.1(react@19.3.1))(@solana/kit@5.5.1(typescript@7.0.2))(@solana/sysvars@5.5.1(typescript@7.0.2))(@types/react@19.3.0)(ethers@6.17.0)(react@19.3.1)(typescript@7.0.2)(use-sync-external-store@1.4.0(react@19.3.1))(zod@4.6.7)
-      '@reown/appkit-common': 2.0.0-wagmi-3.0(typescript@7.0.2)(zod@4.6.7)
-      '@reown/appkit-controllers': 2.0.0-wagmi-3.0(@react-native-async-storage/async-storage@3.1.1(react@19.3.1))(@types/react@19.3.0)(react@19.3.1)(typescript@7.0.2)(zod@4.6.7)
-      '@reown/appkit-polyfills': 2.0.0-wagmi-3.0
-      '@reown/appkit-scaffold-ui': 2.0.0-wagmi-3.0(@react-native-async-storage/async-storage@3.1.1(react@19.3.1))(@solana/kit@5.5.1(typescript@7.0.2))(@solana/sysvars@5.5.1(typescript@7.0.2))(@types/react@19.3.0)(ethers@6.17.0)(react@19.3.1)(typescript@7.0.2)(use-sync-external-store@1.4.0(react@19.3.1))(zod@4.6.7)
-      '@reown/appkit-utils': 2.0.0-wagmi-3.0(@react-native-async-storage/async-storage@3.1.1(react@19.3.1))(@solana/kit@5.5.1(typescript@7.0.2))(@solana/sysvars@5.5.1(typescript@7.0.2))(@types/react@19.3.0)(ethers@6.17.0)(react@19.3.1)(typescript@7.0.2)(use-sync-external-store@1.4.0(react@19.3.1))(zod@4.6.7)
-      '@reown/appkit-wallet': 2.0.0-wagmi-3.0(typescript@7.0.2)
+      '@reown/appkit': 2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(@react-native-async-storage/async-storage@3.1.1(react@19.3.1))(@solana/kit@5.5.1(typescript@7.0.2))(@solana/sysvars@5.5.1(typescript@7.0.2))(@types/react@19.3.0)(ethers@6.17.0)(react@19.3.1)(typescript@7.0.2)(use-sync-external-store@1.4.0(react@19.3.1))(zod@4.6.7)
+      '@reown/appkit-common': 2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(typescript@7.0.2)(zod@4.6.7)
+      '@reown/appkit-controllers': 2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(@react-native-async-storage/async-storage@3.1.1(react@19.3.1))(@types/react@19.3.0)(react@19.3.1)(typescript@7.0.2)(zod@4.6.7)
+      '@reown/appkit-polyfills': 2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0
+      '@reown/appkit-scaffold-ui': 2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(@react-native-async-storage/async-storage@3.1.1(react@19.3.1))(@solana/kit@5.5.1(typescript@7.0.2))(@solana/sysvars@5.5.1(typescript@7.0.2))(@types/react@19.3.0)(ethers@6.17.0)(react@19.3.1)(typescript@7.0.2)(use-sync-external-store@1.4.0(react@19.3.1))(zod@4.6.7)
+      '@reown/appkit-utils': 2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(@react-native-async-storage/async-storage@3.1.1(react@19.3.1))(@solana/kit@5.5.1(typescript@7.0.2))(@solana/sysvars@5.5.1(typescript@7.0.2))(@types/react@19.3.0)(ethers@6.17.0)(react@19.3.1)(typescript@7.0.2)(use-sync-external-store@1.4.0(react@19.3.1))(zod@4.6.7)
+      '@reown/appkit-wallet': 2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(typescript@7.0.2)
       '@wagmi/connectors': 8.2.2(@coinbase/wallet-sdk@4.3.6(@types/react@19.3.0)(react@19.3.1)(typescript@7.0.2)(use-sync-external-store@1.4.0(react@19.3.1))(zod@4.6.7))(@safe-global/safe-apps-provider@0.18.6(typescript@7.0.2)(zod@4.6.7))(@safe-global/safe-apps-sdk@9.1.0(typescript@7.0.2)(zod@4.6.7))(@wagmi/core@3.6.7(@tanstack/query-core@5.104.5)(@types/react@19.3.0)(react@19.3.1)(typescript@7.0.2)(use-sync-external-store@1.4.0(react@19.3.1))(viem@2.57.11(typescript@7.0.2)(zod@4.6.7)))(typescript@7.0.2)(viem@2.57.11(typescript@7.0.2)(zod@4.6.7))
       '@wagmi/core': 3.6.7(@tanstack/query-core@5.104.5)(@types/react@19.3.0)(react@19.3.1)(typescript@7.0.2)(use-sync-external-store@1.4.0(react@19.3.1))(viem@2.57.11(typescript@7.0.2)(zod@4.6.7))
       '@walletconnect/universal-provider': 2.23.7(@react-native-async-storage/async-storage@3.1.1(react@19.3.1))(typescript@7.0.2)(zod@4.6.7)
@@ -3507,6 +3534,28 @@ snapshots:
       - utf-8-validate
       - zod
 
+  '@reown/appkit-common@2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(typescript@7.0.2)(zod@3.22.4)':
+    dependencies:
+      big.js: 6.2.2
+      dayjs: 1.11.13
+      viem: 2.57.11(typescript@7.0.2)(zod@3.22.4)
+    transitivePeerDependencies:
+      - bufferutil
+      - typescript
+      - utf-8-validate
+      - zod
+
+  '@reown/appkit-common@2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(typescript@7.0.2)(zod@4.6.7)':
+    dependencies:
+      big.js: 6.2.2
+      dayjs: 1.11.13
+      viem: 2.57.11(typescript@7.0.2)(zod@4.6.7)
+    transitivePeerDependencies:
+      - bufferutil
+      - typescript
+      - utf-8-validate
+      - zod
+
   '@reown/appkit-common@2.0.0-wagmi-3.0(typescript@7.0.2)(zod@3.22.4)':
     dependencies:
       big.js: 6.2.2
@@ -3526,6 +3575,41 @@ snapshots:
     transitivePeerDependencies:
       - bufferutil
       - typescript
+      - utf-8-validate
+      - zod
+
+  '@reown/appkit-controllers@2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(@react-native-async-storage/async-storage@3.1.1(react@19.3.1))(@types/react@19.3.0)(react@19.3.1)(typescript@7.0.2)(zod@4.6.7)':
+    dependencies:
+      '@reown/appkit-common': 2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(typescript@7.0.2)(zod@4.6.7)
+      '@reown/appkit-wallet': 2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(typescript@7.0.2)
+      '@walletconnect/universal-provider': 2.23.7(@react-native-async-storage/async-storage@3.1.1(react@19.3.1))(typescript@7.0.2)(zod@4.6.7)
+      valtio: 2.1.7(@types/react@19.3.0)(react@19.3.1)
+      viem: 2.57.11(typescript@7.0.2)(zod@4.6.7)
+    transitivePeerDependencies:
+      - '@azure/app-configuration'
+      - '@azure/cosmos'
+      - '@azure/data-tables'
+      - '@azure/identity'
+      - '@azure/keyvault-secrets'
+      - '@azure/storage-blob'
+      - '@capacitor/preferences'
+      - '@deno/kv'
+      - '@netlify/blobs'
+      - '@planetscale/database'
+      - '@react-native-async-storage/async-storage'
+      - '@types/react'
+      - '@upstash/redis'
+      - '@vercel/blob'
+      - '@vercel/functions'
+      - '@vercel/kv'
+      - aws4fetch
+      - bufferutil
+      - db0
+      - encoding
+      - ioredis
+      - react
+      - typescript
+      - uploadthing
       - utf-8-validate
       - zod
 
@@ -3561,6 +3645,50 @@ snapshots:
       - react
       - typescript
       - uploadthing
+      - utf-8-validate
+      - zod
+
+  '@reown/appkit-pay@2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(@react-native-async-storage/async-storage@3.1.1(react@19.3.1))(@solana/kit@5.5.1(typescript@7.0.2))(@solana/sysvars@5.5.1(typescript@7.0.2))(@types/react@19.3.0)(ethers@6.17.0)(react@19.3.1)(typescript@7.0.2)(use-sync-external-store@1.4.0(react@19.3.1))(zod@4.6.7)':
+    dependencies:
+      '@reown/appkit-common': 2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(typescript@7.0.2)(zod@4.6.7)
+      '@reown/appkit-controllers': 2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(@react-native-async-storage/async-storage@3.1.1(react@19.3.1))(@types/react@19.3.0)(react@19.3.1)(typescript@7.0.2)(zod@4.6.7)
+      '@reown/appkit-ui': 2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(@react-native-async-storage/async-storage@3.1.1(react@19.3.1))(@types/react@19.3.0)(react@19.3.1)(typescript@7.0.2)(zod@4.6.7)
+      '@reown/appkit-utils': 2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(@react-native-async-storage/async-storage@3.1.1(react@19.3.1))(@solana/kit@5.5.1(typescript@7.0.2))(@solana/sysvars@5.5.1(typescript@7.0.2))(@types/react@19.3.0)(ethers@6.17.0)(react@19.3.1)(typescript@7.0.2)(use-sync-external-store@1.4.0(react@19.3.1))(zod@4.6.7)
+      lit: 3.3.0
+      valtio: 2.1.7(@types/react@19.3.0)(react@19.3.1)
+    transitivePeerDependencies:
+      - '@azure/app-configuration'
+      - '@azure/cosmos'
+      - '@azure/data-tables'
+      - '@azure/identity'
+      - '@azure/keyvault-secrets'
+      - '@azure/storage-blob'
+      - '@capacitor/preferences'
+      - '@deno/kv'
+      - '@netlify/blobs'
+      - '@planetscale/database'
+      - '@react-native-async-storage/async-storage'
+      - '@solana/kit'
+      - '@solana/sysvars'
+      - '@types/react'
+      - '@upstash/redis'
+      - '@vercel/blob'
+      - '@vercel/functions'
+      - '@vercel/kv'
+      - aws4fetch
+      - bufferutil
+      - db0
+      - debug
+      - encoding
+      - ethers
+      - fastestsmallesttextencoderdecoder
+      - immer
+      - ioredis
+      - react
+      - supports-color
+      - typescript
+      - uploadthing
+      - use-sync-external-store
       - utf-8-validate
       - zod
 
@@ -3608,9 +3736,58 @@ snapshots:
       - utf-8-validate
       - zod
 
+  '@reown/appkit-polyfills@2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0':
+    dependencies:
+      buffer: 6.0.3
+
   '@reown/appkit-polyfills@2.0.0-wagmi-3.0':
     dependencies:
       buffer: 6.0.3
+
+  '@reown/appkit-scaffold-ui@2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(@react-native-async-storage/async-storage@3.1.1(react@19.3.1))(@solana/kit@5.5.1(typescript@7.0.2))(@solana/sysvars@5.5.1(typescript@7.0.2))(@types/react@19.3.0)(ethers@6.17.0)(react@19.3.1)(typescript@7.0.2)(use-sync-external-store@1.4.0(react@19.3.1))(zod@4.6.7)':
+    dependencies:
+      '@reown/appkit-common': 2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(typescript@7.0.2)(zod@4.6.7)
+      '@reown/appkit-controllers': 2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(@react-native-async-storage/async-storage@3.1.1(react@19.3.1))(@types/react@19.3.0)(react@19.3.1)(typescript@7.0.2)(zod@4.6.7)
+      '@reown/appkit-pay': 2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(@react-native-async-storage/async-storage@3.1.1(react@19.3.1))(@solana/kit@5.5.1(typescript@7.0.2))(@solana/sysvars@5.5.1(typescript@7.0.2))(@types/react@19.3.0)(ethers@6.17.0)(react@19.3.1)(typescript@7.0.2)(use-sync-external-store@1.4.0(react@19.3.1))(zod@4.6.7)
+      '@reown/appkit-ui': 2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(@react-native-async-storage/async-storage@3.1.1(react@19.3.1))(@types/react@19.3.0)(react@19.3.1)(typescript@7.0.2)(zod@4.6.7)
+      '@reown/appkit-utils': 2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(@react-native-async-storage/async-storage@3.1.1(react@19.3.1))(@solana/kit@5.5.1(typescript@7.0.2))(@solana/sysvars@5.5.1(typescript@7.0.2))(@types/react@19.3.0)(ethers@6.17.0)(react@19.3.1)(typescript@7.0.2)(use-sync-external-store@1.4.0(react@19.3.1))(zod@4.6.7)
+      '@reown/appkit-wallet': 2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(typescript@7.0.2)
+      lit: 3.3.0
+    transitivePeerDependencies:
+      - '@azure/app-configuration'
+      - '@azure/cosmos'
+      - '@azure/data-tables'
+      - '@azure/identity'
+      - '@azure/keyvault-secrets'
+      - '@azure/storage-blob'
+      - '@capacitor/preferences'
+      - '@deno/kv'
+      - '@netlify/blobs'
+      - '@planetscale/database'
+      - '@react-native-async-storage/async-storage'
+      - '@solana/kit'
+      - '@solana/sysvars'
+      - '@types/react'
+      - '@upstash/redis'
+      - '@vercel/blob'
+      - '@vercel/functions'
+      - '@vercel/kv'
+      - aws4fetch
+      - bufferutil
+      - db0
+      - debug
+      - encoding
+      - ethers
+      - fastestsmallesttextencoderdecoder
+      - immer
+      - ioredis
+      - react
+      - supports-color
+      - typescript
+      - uploadthing
+      - use-sync-external-store
+      - utf-8-validate
+      - zod
 
   '@reown/appkit-scaffold-ui@2.0.0-wagmi-3.0(@react-native-async-storage/async-storage@3.1.1(react@19.3.1))(@solana/kit@5.5.1(typescript@7.0.2))(@solana/sysvars@5.5.1(typescript@7.0.2))(@types/react@19.3.0)(ethers@6.17.0)(react@19.3.1)(typescript@7.0.2)(use-sync-external-store@1.4.0(react@19.3.1))(zod@4.6.7)':
     dependencies:
@@ -3657,6 +3834,42 @@ snapshots:
       - utf-8-validate
       - zod
 
+  '@reown/appkit-ui@2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(@react-native-async-storage/async-storage@3.1.1(react@19.3.1))(@types/react@19.3.0)(react@19.3.1)(typescript@7.0.2)(zod@4.6.7)':
+    dependencies:
+      '@phosphor-icons/webcomponents': 2.1.5
+      '@reown/appkit-common': 2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(typescript@7.0.2)(zod@4.6.7)
+      '@reown/appkit-controllers': 2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(@react-native-async-storage/async-storage@3.1.1(react@19.3.1))(@types/react@19.3.0)(react@19.3.1)(typescript@7.0.2)(zod@4.6.7)
+      '@reown/appkit-wallet': 2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(typescript@7.0.2)
+      lit: 3.3.0
+      qrcode: 1.5.3
+    transitivePeerDependencies:
+      - '@azure/app-configuration'
+      - '@azure/cosmos'
+      - '@azure/data-tables'
+      - '@azure/identity'
+      - '@azure/keyvault-secrets'
+      - '@azure/storage-blob'
+      - '@capacitor/preferences'
+      - '@deno/kv'
+      - '@netlify/blobs'
+      - '@planetscale/database'
+      - '@react-native-async-storage/async-storage'
+      - '@types/react'
+      - '@upstash/redis'
+      - '@vercel/blob'
+      - '@vercel/functions'
+      - '@vercel/kv'
+      - aws4fetch
+      - bufferutil
+      - db0
+      - encoding
+      - ioredis
+      - react
+      - typescript
+      - uploadthing
+      - utf-8-validate
+      - zod
+
   '@reown/appkit-ui@2.0.0-wagmi-3.0(@react-native-async-storage/async-storage@3.1.1(react@19.3.1))(@types/react@19.3.0)(react@19.3.1)(typescript@7.0.2)(zod@4.6.7)':
     dependencies:
       '@phosphor-icons/webcomponents': 2.1.5
@@ -3690,6 +3903,62 @@ snapshots:
       - react
       - typescript
       - uploadthing
+      - utf-8-validate
+      - zod
+
+  '@reown/appkit-utils@2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(@react-native-async-storage/async-storage@3.1.1(react@19.3.1))(@solana/kit@5.5.1(typescript@7.0.2))(@solana/sysvars@5.5.1(typescript@7.0.2))(@types/react@19.3.0)(ethers@6.17.0)(react@19.3.1)(typescript@7.0.2)(use-sync-external-store@1.4.0(react@19.3.1))(zod@4.6.7)':
+    dependencies:
+      '@reown/appkit-common': 2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(typescript@7.0.2)(zod@4.6.7)
+      '@reown/appkit-controllers': 2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(@react-native-async-storage/async-storage@3.1.1(react@19.3.1))(@types/react@19.3.0)(react@19.3.1)(typescript@7.0.2)(zod@4.6.7)
+      '@reown/appkit-polyfills': 2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0
+      '@reown/appkit-wallet': 2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(typescript@7.0.2)
+      '@wallet-standard/wallet': 1.1.0
+      '@walletconnect/logger': 3.0.2
+      '@walletconnect/universal-provider': 2.23.7(@react-native-async-storage/async-storage@3.1.1(react@19.3.1))(typescript@7.0.2)(zod@4.6.7)
+      valtio: 2.1.7(@types/react@19.3.0)(react@19.3.1)
+      viem: 2.57.11(typescript@7.0.2)(zod@4.6.7)
+    optionalDependencies:
+      '@base-org/account': 2.4.0(@types/react@19.3.0)(@x402/core@2.27.0)(@x402/evm@2.27.0(typescript@7.0.2))(@x402/extensions@2.27.0(ethers@6.17.0)(typescript@7.0.2))(@x402/svm@2.27.0(@solana/kit@5.5.1(typescript@7.0.2))(@solana/sysvars@5.5.1(typescript@7.0.2)))(react@19.3.1)(typescript@7.0.2)(use-sync-external-store@1.4.0(react@19.3.1))(zod@4.6.7)
+      '@coinbase/wallet-sdk': 4.3.6(@types/react@19.3.0)(react@19.3.1)(typescript@7.0.2)(use-sync-external-store@1.4.0(react@19.3.1))(zod@4.6.7)
+      '@safe-global/safe-apps-provider': 0.18.6(typescript@7.0.2)(zod@4.6.7)
+      '@safe-global/safe-apps-sdk': 9.1.0(typescript@7.0.2)(zod@4.6.7)
+      '@x402/core': 2.27.0
+      '@x402/evm': 2.27.0(typescript@7.0.2)
+      '@x402/extensions': 2.27.0(ethers@6.17.0)(typescript@7.0.2)
+      '@x402/svm': 2.27.0(@solana/kit@5.5.1(typescript@7.0.2))(@solana/sysvars@5.5.1(typescript@7.0.2))
+    transitivePeerDependencies:
+      - '@azure/app-configuration'
+      - '@azure/cosmos'
+      - '@azure/data-tables'
+      - '@azure/identity'
+      - '@azure/keyvault-secrets'
+      - '@azure/storage-blob'
+      - '@capacitor/preferences'
+      - '@deno/kv'
+      - '@netlify/blobs'
+      - '@planetscale/database'
+      - '@react-native-async-storage/async-storage'
+      - '@solana/kit'
+      - '@solana/sysvars'
+      - '@types/react'
+      - '@upstash/redis'
+      - '@vercel/blob'
+      - '@vercel/functions'
+      - '@vercel/kv'
+      - aws4fetch
+      - bufferutil
+      - db0
+      - debug
+      - encoding
+      - ethers
+      - fastestsmallesttextencoderdecoder
+      - immer
+      - ioredis
+      - react
+      - supports-color
+      - typescript
+      - uploadthing
+      - use-sync-external-store
       - utf-8-validate
       - zod
 
@@ -3749,6 +4018,17 @@ snapshots:
       - utf-8-validate
       - zod
 
+  '@reown/appkit-wallet@2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(typescript@7.0.2)':
+    dependencies:
+      '@reown/appkit-common': 2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(typescript@7.0.2)(zod@3.22.4)
+      '@reown/appkit-polyfills': 2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0
+      '@walletconnect/logger': 3.0.2
+      zod: 3.22.4
+    transitivePeerDependencies:
+      - bufferutil
+      - typescript
+      - utf-8-validate
+
   '@reown/appkit-wallet@2.0.0-wagmi-3.0(typescript@7.0.2)':
     dependencies:
       '@reown/appkit-common': 2.0.0-wagmi-3.0(typescript@7.0.2)(zod@3.22.4)
@@ -3759,6 +4039,59 @@ snapshots:
       - bufferutil
       - typescript
       - utf-8-validate
+
+  '@reown/appkit@2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(@react-native-async-storage/async-storage@3.1.1(react@19.3.1))(@solana/kit@5.5.1(typescript@7.0.2))(@solana/sysvars@5.5.1(typescript@7.0.2))(@types/react@19.3.0)(ethers@6.17.0)(react@19.3.1)(typescript@7.0.2)(use-sync-external-store@1.4.0(react@19.3.1))(zod@4.6.7)':
+    dependencies:
+      '@reown/appkit-common': 2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(typescript@7.0.2)(zod@4.6.7)
+      '@reown/appkit-controllers': 2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(@react-native-async-storage/async-storage@3.1.1(react@19.3.1))(@types/react@19.3.0)(react@19.3.1)(typescript@7.0.2)(zod@4.6.7)
+      '@reown/appkit-pay': 2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(@react-native-async-storage/async-storage@3.1.1(react@19.3.1))(@solana/kit@5.5.1(typescript@7.0.2))(@solana/sysvars@5.5.1(typescript@7.0.2))(@types/react@19.3.0)(ethers@6.17.0)(react@19.3.1)(typescript@7.0.2)(use-sync-external-store@1.4.0(react@19.3.1))(zod@4.6.7)
+      '@reown/appkit-polyfills': 2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0
+      '@reown/appkit-scaffold-ui': 2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(@react-native-async-storage/async-storage@3.1.1(react@19.3.1))(@solana/kit@5.5.1(typescript@7.0.2))(@solana/sysvars@5.5.1(typescript@7.0.2))(@types/react@19.3.0)(ethers@6.17.0)(react@19.3.1)(typescript@7.0.2)(use-sync-external-store@1.4.0(react@19.3.1))(zod@4.6.7)
+      '@reown/appkit-ui': 2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(@react-native-async-storage/async-storage@3.1.1(react@19.3.1))(@types/react@19.3.0)(react@19.3.1)(typescript@7.0.2)(zod@4.6.7)
+      '@reown/appkit-utils': 2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(@react-native-async-storage/async-storage@3.1.1(react@19.3.1))(@solana/kit@5.5.1(typescript@7.0.2))(@solana/sysvars@5.5.1(typescript@7.0.2))(@types/react@19.3.0)(ethers@6.17.0)(react@19.3.1)(typescript@7.0.2)(use-sync-external-store@1.4.0(react@19.3.1))(zod@4.6.7)
+      '@reown/appkit-wallet': 2.0.0-8f9f39f1dfe0a21bb619dd9a33b6d7500523298b.0(typescript@7.0.2)
+      '@walletconnect/universal-provider': 2.23.7(@react-native-async-storage/async-storage@3.1.1(react@19.3.1))(typescript@7.0.2)(zod@4.6.7)
+      bs58: 6.0.0
+      semver: 7.7.2
+      valtio: 2.1.7(@types/react@19.3.0)(react@19.3.1)
+      viem: 2.57.11(typescript@7.0.2)(zod@4.6.7)
+    optionalDependencies:
+      '@lit/react': 1.0.8(@types/react@19.3.0)
+    transitivePeerDependencies:
+      - '@azure/app-configuration'
+      - '@azure/cosmos'
+      - '@azure/data-tables'
+      - '@azure/identity'
+      - '@azure/keyvault-secrets'
+      - '@azure/storage-blob'
+      - '@capacitor/preferences'
+      - '@deno/kv'
+      - '@netlify/blobs'
+      - '@planetscale/database'
+      - '@react-native-async-storage/async-storage'
+      - '@solana/kit'
+      - '@solana/sysvars'
+      - '@types/react'
+      - '@upstash/redis'
+      - '@vercel/blob'
+      - '@vercel/functions'
+      - '@vercel/kv'
+      - aws4fetch
+      - bufferutil
+      - db0
+      - debug
+      - encoding
+      - ethers
+      - fastestsmallesttextencoderdecoder
+      - immer
+      - ioredis
+      - react
+      - supports-color
+      - typescript
+      - uploadthing
+      - use-sync-external-store
+      - utf-8-validate
+      - zod
 
   '@reown/appkit@2.0.0-wagmi-3.0(@react-native-async-storage/async-storage@3.1.1(react@19.3.1))(@solana/kit@5.5.1(typescript@7.0.2))(@solana/sysvars@5.5.1(typescript@7.0.2))(@types/react@19.3.0)(ethers@6.17.0)(react@19.3.1)(typescript@7.0.2)(use-sync-external-store@1.4.0(react@19.3.1))(zod@4.6.7)':
     dependencies:
@@ -3919,7 +4252,7 @@ snapshots:
   '@safe-global/safe-apps-sdk@9.1.0(typescript@7.0.2)(zod@4.6.7)':
     dependencies:
       '@safe-global/safe-gateway-typescript-sdk': 3.23.1
-      viem: 2.57.0(typescript@7.0.2)(zod@4.6.7)
+      viem: 2.57.11(typescript@7.0.2)(zod@4.6.7)
     transitivePeerDependencies:
       - bufferutil
       - typescript
@@ -3961,12 +4294,12 @@ snapshots:
       apg-js: 4.4.0
     optional: true
 
-  '@signinwithethereum/siwe@4.2.1(ethers@6.17.0)(viem@2.57.0(typescript@7.0.2)(zod@4.6.7))':
+  '@signinwithethereum/siwe@4.2.1(ethers@6.17.0)(viem@2.57.11(typescript@7.0.2)(zod@4.6.7))':
     dependencies:
       '@signinwithethereum/siwe-parser': 4.2.1
     optionalDependencies:
       ethers: 6.17.0
-      viem: 2.57.0(typescript@7.0.2)(zod@4.6.7)
+      viem: 2.57.11(typescript@7.0.2)(zod@4.6.7)
     optional: true
 
   '@solana-program/compute-budget@0.11.0(@solana/kit@5.5.1(typescript@7.0.2))':
@@ -4910,7 +5243,7 @@ snapshots:
   '@x402/evm@2.27.0(typescript@7.0.2)':
     dependencies:
       '@x402/core': 2.27.0
-      viem: 2.57.0(typescript@7.0.2)(zod@3.25.76)
+      viem: 2.57.11(typescript@7.0.2)(zod@3.25.76)
       zod: 3.25.76
     transitivePeerDependencies:
       - bufferutil
@@ -4922,12 +5255,12 @@ snapshots:
     dependencies:
       '@noble/curves': 1.9.7
       '@scure/base': 1.2.6
-      '@signinwithethereum/siwe': 4.2.1(ethers@6.17.0)(viem@2.57.0(typescript@7.0.2)(zod@4.6.7))
+      '@signinwithethereum/siwe': 4.2.1(ethers@6.17.0)(viem@2.57.11(typescript@7.0.2)(zod@4.6.7))
       '@x402/core': 2.27.0
       ajv: 8.20.0
       jose: 5.10.0
       tweetnacl: 1.0.3
-      viem: 2.57.0(typescript@7.0.2)(zod@3.25.76)
+      viem: 2.57.11(typescript@7.0.2)(zod@3.25.76)
       zod: 3.25.76
     transitivePeerDependencies:
       - bufferutil
@@ -5045,7 +5378,7 @@ snapshots:
   ajv@8.20.0:
     dependencies:
       fast-deep-equal: 3.1.3
-      fast-uri: 3.1.8
+      fast-uri: 3.1.9
       json-schema-traverse: 1.0.0
       require-from-string: 2.0.2
 
@@ -5081,15 +5414,15 @@ snapshots:
       stubborn-fs: 2.0.0
       when-exit: 2.1.5
 
-  axios-retry@4.5.0(axios@1.20.0):
+  axios-retry@4.5.0(axios@1.21.0):
     dependencies:
-      axios: 1.20.0
+      axios: 1.21.0
       is-retry-allowed: 2.2.0
     optional: true
 
-  axios@1.20.0:
+  axios@1.21.0:
     dependencies:
-      follow-redirects: 1.16.1
+      follow-redirects: 1.16.2
       form-data: 4.0.6
       https-proxy-agent: 5.0.1
       proxy-from-env: 2.1.0
@@ -5305,7 +5638,7 @@ snapshots:
 
   fast-deep-equal@3.1.3: {}
 
-  fast-uri@3.1.8: {}
+  fast-uri@3.1.9: {}
 
   fdir@6.5.0(picomatch@4.0.7):
     optionalDependencies:
@@ -5318,7 +5651,7 @@ snapshots:
       locate-path: 5.0.0
       path-exists: 4.0.0
 
-  follow-redirects@1.16.1:
+  follow-redirects@1.16.2:
     optional: true
 
   form-data@4.0.6:
@@ -5451,7 +5784,7 @@ snapshots:
   jose@5.10.0:
     optional: true
 
-  jose@6.2.12:
+  jose@6.2.13:
     optional: true
 
   json-schema-traverse@1.0.0: {}
@@ -5660,22 +5993,6 @@ snapshots:
     transitivePeerDependencies:
       - zod
 
-  ox@0.14.45(typescript@7.0.2)(zod@3.25.76):
-    dependencies:
-      '@adraffy/ens-normalize': 1.11.1
-      '@noble/ciphers': 1.3.0
-      '@noble/curves': 1.9.1
-      '@noble/hashes': 1.8.0
-      '@scure/bip32': 1.7.0
-      '@scure/bip39': 1.6.0
-      abitype: 1.3.0(typescript@7.0.2)(zod@3.25.76)
-      eventemitter3: 5.0.1
-    optionalDependencies:
-      typescript: 7.0.2
-    transitivePeerDependencies:
-      - zod
-    optional: true
-
   ox@0.14.45(typescript@7.0.2)(zod@4.6.7):
     dependencies:
       '@adraffy/ens-normalize': 1.11.1
@@ -5690,6 +6007,37 @@ snapshots:
       typescript: 7.0.2
     transitivePeerDependencies:
       - zod
+
+  ox@0.14.57(typescript@7.0.2)(zod@3.22.4):
+    dependencies:
+      '@adraffy/ens-normalize': 1.11.1
+      '@noble/ciphers': 1.3.0
+      '@noble/curves': 1.9.1
+      '@noble/hashes': 1.8.0
+      '@scure/bip32': 1.7.0
+      '@scure/bip39': 1.6.0
+      abitype: 1.3.0(typescript@7.0.2)(zod@3.22.4)
+      eventemitter3: 5.0.1
+    optionalDependencies:
+      typescript: 7.0.2
+    transitivePeerDependencies:
+      - zod
+
+  ox@0.14.57(typescript@7.0.2)(zod@3.25.76):
+    dependencies:
+      '@adraffy/ens-normalize': 1.11.1
+      '@noble/ciphers': 1.3.0
+      '@noble/curves': 1.9.1
+      '@noble/hashes': 1.8.0
+      '@scure/bip32': 1.7.0
+      '@scure/bip39': 1.6.0
+      abitype: 1.3.0(typescript@7.0.2)(zod@3.25.76)
+      eventemitter3: 5.0.1
+    optionalDependencies:
+      typescript: 7.0.2
+    transitivePeerDependencies:
+      - zod
+    optional: true
 
   ox@0.14.57(typescript@7.0.2)(zod@4.6.7):
     dependencies:
@@ -6135,24 +6483,6 @@ snapshots:
       - utf-8-validate
       - zod
 
-  viem@2.57.0(typescript@7.0.2)(zod@3.25.76):
-    dependencies:
-      '@noble/curves': 1.9.1
-      '@noble/hashes': 1.8.0
-      '@scure/bip32': 1.7.0
-      '@scure/bip39': 1.6.0
-      abitype: 1.2.3(typescript@7.0.2)(zod@3.25.76)
-      isows: 1.0.7(ws@8.21.0)
-      ox: 0.14.45(typescript@7.0.2)(zod@3.25.76)
-      ws: 8.21.0
-    optionalDependencies:
-      typescript: 7.0.2
-    transitivePeerDependencies:
-      - bufferutil
-      - utf-8-validate
-      - zod
-    optional: true
-
   viem@2.57.0(typescript@7.0.2)(zod@4.6.7):
     dependencies:
       '@noble/curves': 1.9.1
@@ -6169,6 +6499,41 @@ snapshots:
       - bufferutil
       - utf-8-validate
       - zod
+
+  viem@2.57.11(typescript@7.0.2)(zod@3.22.4):
+    dependencies:
+      '@noble/curves': 1.9.1
+      '@noble/hashes': 1.8.0
+      '@scure/bip32': 1.7.0
+      '@scure/bip39': 1.6.0
+      abitype: 1.2.3(typescript@7.0.2)(zod@3.22.4)
+      isows: 1.0.7(ws@8.21.0)
+      ox: 0.14.57(typescript@7.0.2)(zod@3.22.4)
+      ws: 8.21.0
+    optionalDependencies:
+      typescript: 7.0.2
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+      - zod
+
+  viem@2.57.11(typescript@7.0.2)(zod@3.25.76):
+    dependencies:
+      '@noble/curves': 1.9.1
+      '@noble/hashes': 1.8.0
+      '@scure/bip32': 1.7.0
+      '@scure/bip39': 1.6.0
+      abitype: 1.2.3(typescript@7.0.2)(zod@3.25.76)
+      isows: 1.0.7(ws@8.21.0)
+      ox: 0.14.57(typescript@7.0.2)(zod@3.25.76)
+      ws: 8.21.0
+    optionalDependencies:
+      typescript: 7.0.2
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+      - zod
+    optional: true
 
   viem@2.57.11(typescript@7.0.2)(zod@4.6.7):
     dependencies:
