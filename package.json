@@ -15,9 +15,9 @@
   "pnpm": {
     "ignoredBuiltDependencies": ["@reown/appkit"]
   },  "devDependencies": {
-    "@types/node": "=26.6.5",
-    "tsdown": "=0.23.2",
+    "@types/node": "=26.6.6",
+    "tsdown": "=0.23.5",
     "typescript": "=7.0.2",
-    "vitest": "=5.0.5",
+    "vitest": "=5.1.0",
     "vite": "^8.3.5"  }
 }
