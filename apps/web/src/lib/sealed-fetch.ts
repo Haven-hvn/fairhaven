@@ -54,7 +54,11 @@ export async function fetchSealedBytes(opts: SealedFetchOptions): Promise<Uint8A
   const chainId = filecoinChainIdForGate(opts.gateChain)
   const synapse = Synapse.create({
     account: privateKeyToAccount(generatePrivateKey()),
-    chain: getChain(chainId),
+    // `@filoz/synapse-sdk` 2.x still resolves a nested `@filoz/synapse-core`
+    // 0.10.2, so `getChain` (direct 0.11.0) and `Synapse.create` (0.10.2)
+    // disagree on `FilecoinChain` at the type level only — the chain object
+    // (including the FWSS ABI) is identical at runtime. Cast this boundary.
+    chain: getChain(chainId) as unknown as Parameters<typeof Synapse.create>[0]['chain'],
     source: opts.source,
     withCDN: opts.withCdn,
   })
