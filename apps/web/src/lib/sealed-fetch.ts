@@ -58,7 +58,7 @@ export async function fetchSealedBytes(opts: SealedFetchOptions): Promise<Uint8A
     // 0.10.2, so `getChain` (direct 0.11.0) and `Synapse.create` (0.10.2)
     // disagree on `FilecoinChain` at the type level only — the chain object
     // (including the FWSS ABI) is identical at runtime. Cast this boundary.
-    chain: getChain(chainId) as unknown as Parameters<typeof Synapse.create>[0]['chain'],
+    chain: getChain(chainId) as unknown as NonNullable<Parameters<typeof Synapse.create>[0]['chain']>,
     source: opts.source,
     withCDN: opts.withCdn,
   })
