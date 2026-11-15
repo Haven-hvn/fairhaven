@@ -10,7 +10,7 @@ import { arkivNetwork, networks } from '../src/lib/wallet'
 describe('wallet networks', () => {
   it('include the Arkiv chain the write path switches to', () => {
     // Default RPC is the Arkiv Rabdi testnet (see `lib/env`).
-    expect(arkivNetwork.id).toBe(7738577)
+    expect(arkivNetwork.id).toBe(7794095)
     expect(networks.map((n) => n.id)).toContain(arkivNetwork.id)
   })
 })

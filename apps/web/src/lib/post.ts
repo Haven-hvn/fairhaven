@@ -199,11 +199,11 @@ async function arkivWallet(wallet: BrowserWallet, onProgress?: ProgressFn) {
   const client = createWalletClient({ account: address, chain, transport: custom(provider) } as never)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   if (typeof (client as any).createEntity !== 'function') throw new Error('Arkiv wallet client unavailable (createEntity missing)')
-  return { client, ExpirationTime, restoreNetwork }
+  return { client, ExpirationTime, restoreNetwork, BOARD_SCHEMA }
 }
 
 async function sendWrite(wallet: BrowserWallet, w: EntityWrite, onProgress?: ProgressFn): Promise<{ key: string; txHash: string }> {
-  const { client, ExpirationTime, restoreNetwork } = await arkivWallet(wallet, onProgress)
+  const { client, ExpirationTime, restoreNetwork, BOARD_SCHEMA } = await arkivWallet(wallet, onProgress)
   try {
     // 1.x column inputs take bare values for str/i32/u256/bool and
     // Uint8Array for bytes — the schema constructor does the tagging.
