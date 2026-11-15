@@ -208,6 +208,7 @@ async function sendWrite(wallet: BrowserWallet, w: EntityWrite, onProgress?: Pro
     // 1.x column inputs take bare values for str/i32/u256/bool and
     // Uint8Array for bytes — the schema constructor does the tagging.
     const values: Record<string, unknown> = { ...w.attributes, content_type: w.contentType, payload: w.payload }
+    onProgress?.({ stage: 'signing' })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const res = await (client as any).createEntity(BOARD_SCHEMA, values, {
       expiration: ExpirationTime.fromSeconds(w.expiresIn),
