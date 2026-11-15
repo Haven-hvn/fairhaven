@@ -6,8 +6,9 @@
  * there is no `$payload`/`$contentType` field in 1.x — both are attributes.
  */
 import { bytes, defineSchema, i32, str, u256 } from '@arkiv-network/sdk/schema'
+import type { Schema } from '@arkiv-network/sdk/schema'
 
-export const BOARD_SCHEMA = defineSchema({
+export const BOARD_SCHEMA: Schema = defineSchema({
   grp: str().indexed(),
   board: str().indexed().optional(),
   subject: str().optional(),
