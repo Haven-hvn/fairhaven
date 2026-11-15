@@ -114,6 +114,9 @@ importers:
       '@noble/hashes':
         specifier: 2.4.0
         version: 2.4.0
+      viem:
+        specifier: '=2.57.11'
+        version: 2.57.11(typescript@7.0.2)(zod@4.6.7)
     devDependencies:
       tsdown:
         specifier: '=0.23.2'
