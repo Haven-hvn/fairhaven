@@ -95,10 +95,6 @@ async function receiptFor(wallet: BrowserWallet, gate: BoardGate, onProgress?: P
   return ensureReceipt(wallet as unknown as WalletClientLike, gate, (note) => { if (note) onProgress?.({ stage: 'attesting', note }) })
 }
 
-function toBlocks(expiresInS: number): number {
-  return Math.max(1, Math.floor(expiresInS / 2))
-}
-
 /** Reject if the wallet never answers, instead of sitting on a stale stage forever. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function withWalletTimeout<T>(p: Promise<T>, what: string): Promise<T> {
@@ -122,9 +118,10 @@ async function arkivWallet(wallet: BrowserWallet, onProgress?: ProgressFn) {
   // client has no `createEntity`/`deleteEntity`, so no Arkiv tx (and no
   // signing prompt) would ever happen.
   const { createWalletClient, ExpirationTime } = await import('@arkiv-network/sdk')
+  const { BOARD_SCHEMA } = await import('@fairhaven/board-core')
   const local = env.arkivRpcUrl.includes('localhost') || env.arkivRpcUrl.includes('127.0.0.1')
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const chain = ((local ? (chains as any).localhost : (chains as any).tiramisu) ?? (chains as any).tiramisu) as any
+  // rabdi() embeds the access key in its RPC URLs; "" selects the public endpoint.
+  const chain = (local ? (chains as any).localhost : (chains as any).rabdi({ accessKey: env.arkivApiKey })) as any
   const address = wallet.account.address as `0x${string}`
   // The EIP-1193 provider lives behind the wallet client's transport, but
   // not at `.value`: viem's `custom()` transport carries no value, so that
@@ -150,13 +147,13 @@ async function arkivWallet(wallet: BrowserWallet, onProgress?: ProgressFn) {
             : undefined
   if (!provider?.request) throw new Error('wallet provider not available for signing')
   // Sign through the connected wallet's own provider (works for injected and
-  // WalletConnect alike). Tiramisu is NOT in the AppKit/wagmi network list
+  // WalletConnect alike). Rabdi is NOT in the AppKit/wagmi network list
   // (those are the EVM gate chains), so a wallet left on it makes AppKit show
   // its unsupported-network screen. The switch stays mandatory — viem
-  // refuses to send a Tiramisu tx from another chain anyway — but, following
+  // refuses to send a Rabdi tx from another chain anyway — but, following
   // the haven-dapp drip pattern of keeping Arkiv writes outside wagmi, the
   // caller restores the pre-write network via `restoreNetwork` afterwards,
-  // so the wallet never stays on Tiramisu.
+  // so the wallet never stays on Rabdi.
   let previousChainIdHex: string | undefined
   try {
     const id: unknown = await provider.request({ method: 'eth_chainId' })
@@ -208,18 +205,12 @@ async function arkivWallet(wallet: BrowserWallet, onProgress?: ProgressFn) {
 async function sendWrite(wallet: BrowserWallet, w: EntityWrite, onProgress?: ProgressFn): Promise<{ key: string; txHash: string }> {
   const { client, ExpirationTime, restoreNetwork } = await arkivWallet(wallet, onProgress)
   try {
-    const { i32, str, u256 } = await import('@arkiv-network/sdk/attr')
-    const attributes: Record<string, unknown> = {}
-    for (const [k, v] of Object.entries(w.attributes)) {
-      attributes[k] = typeof v === 'bigint' ? u256(v) : typeof v === 'number' ? i32(v) : str(v)
-    }
-    onProgress?.({ stage: 'signing' })
+    // 1.x column inputs take bare values for str/i32/u256/bool and
+    // Uint8Array for bytes — the schema constructor does the tagging.
+    const values: Record<string, unknown> = { ...w.attributes, content_type: w.contentType, payload: w.payload }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const res = await (client as any).createEntity({
-      payload: w.payload,
-      contentType: w.contentType,
-      attributes,
-      expires: ExpirationTime.fromBlocks(toBlocks(w.expiresIn)),
+    const res = await (client as any).createEntity(BOARD_SCHEMA, values, {
+      expiration: ExpirationTime.fromSeconds(w.expiresIn),
     })
     onProgress?.({ stage: 'done' })
     return { key: String(res.entityKey).toLowerCase(), txHash: String(res.txHash) }

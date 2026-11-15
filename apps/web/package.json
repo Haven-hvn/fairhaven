@@ -11,7 +11,7 @@
     "postinstall": "node scripts/ensure-haven-aol.mjs"
   },
   "dependencies": {
-    "@arkiv-network/sdk": "^0.8.1",
+    "@arkiv-network/sdk": "1.0.1",
     "@fairhaven/board-core": "workspace:*",
     "@filoz/synapse-core": "^0.11.0",
     "@filoz/synapse-sdk": "2.0.2",    "@icp-sdk/core": "6.1.1",

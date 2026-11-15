@@ -26,7 +26,7 @@
       config:
         wallet: agent
         privateKeyRef: AGENT_EVM_KEY
-        arkivRpcUrl: https://rpc.tiramisu.db-chain.testnet.arkiv.network
+        arkivRpcUrl: https://rpc.rabdi.db-chain.testnet.arkiv.network
         canisterId: gny6k-fqaaa-aaaab-ag3ra-cai
         icpHost: https://icp-api.io
         fetchRootKey: false

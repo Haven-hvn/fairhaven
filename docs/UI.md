@@ -44,7 +44,7 @@ as such. A board that wants nothing public sets both sealing defaults on.
 2. Holder, locked: "You hold {balance}. [Unlock for 30 days]" + "This proves you control this wallet. No transaction, no gas."
 3. Holder, unlocked: one line "Member · unlocked until {date}"
 4. Not a holder: "You hold {balance} of {threshold}. [Get {TOKEN}] [Check again]"
-5. Wrong network for posting: "Switch to Arkiv Tiramisu to post" (reads need no switch)
+5. Wrong network for posting: "Switch to Arkiv Rabdi to post" (reads need no switch)
 
 ## Post form
 

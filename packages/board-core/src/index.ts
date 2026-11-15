@@ -1,4 +1,5 @@
 export * from './constants.ts'
+export * from './schema.ts'
 export * from './types.ts'
 export * from './bytes.ts'
 export * from './seal.ts'

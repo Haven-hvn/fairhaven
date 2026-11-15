@@ -58,7 +58,7 @@ treasury-policy row.
   config:
     wallet: agent
     privateKeyRef: AGENT_EVM_KEY        # credential NAME, never a key
-    arkivRpcUrl: https://rpc.tiramisu.db-chain.testnet.arkiv.network
+    arkivRpcUrl: https://rpc.rabdi.db-chain.testnet.arkiv.network
     canisterId: gny6k-fqaaa-aaaab-ag3ra-cai
     icpHost: https://icp-api.io
     memberCheck: true                    # verify receipts offline (default)

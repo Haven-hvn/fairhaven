@@ -43,7 +43,7 @@ export interface Env {
 export const env: Env = {
   walletConnectProjectId: str(process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID, ''),
   appUrl: str(process.env.NEXT_PUBLIC_APP_URL, 'https://fairhaven.local'),
-  arkivRpcUrl: str(process.env.NEXT_PUBLIC_ARKIV_RPC_URL, 'https://rpc.tiramisu.db-chain.testnet.arkiv.network'),
+  arkivRpcUrl: str(process.env.NEXT_PUBLIC_ARKIV_RPC_URL, 'https://rpc.rabdi.db-chain.testnet.arkiv.network'),
   arkivApiKey: str(process.env.NEXT_PUBLIC_ARKIV_API_KEY, ''),
   icpHost: str(process.env.NEXT_PUBLIC_ICP_HOST, 'https://icp-api.io'),
   havenAolCanisterId: str(process.env.NEXT_PUBLIC_HAVEN_AOL_CANISTER_ID, 'gny6k-fqaaa-aaaab-ag3ra-cai'),

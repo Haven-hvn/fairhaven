@@ -54,7 +54,7 @@ export interface Config {
 export const Config: z<Config> = z.object({
   wallet: z.string().required(),
   privateKeyRef: z.string().required(),
-  arkivRpcUrl: z.string().default('https://rpc.tiramisu.db-chain.testnet.arkiv.network'),
+  arkivRpcUrl: z.string().default('https://rpc.rabdi.db-chain.testnet.arkiv.network'),
   canisterId: z.string().default('gny6k-fqaaa-aaaab-ag3ra-cai'),
   icpHost: z.string().default('https://icp-api.io'),
   fetchRootKey: z.boolean().default(false),
@@ -169,7 +169,7 @@ export function apply(ctx: Context, config: Config): void {
   const opts: BoardRuntimeOpts = {
     wallet: config.wallet,
     privateKeyRef: config.privateKeyRef,
-    arkivRpcUrl: config.arkivRpcUrl ?? 'https://rpc.tiramisu.db-chain.testnet.arkiv.network',
+    arkivRpcUrl: config.arkivRpcUrl ?? 'https://rpc.rabdi.db-chain.testnet.arkiv.network',
     canisterId: config.canisterId ?? 'gny6k-fqaaa-aaaab-ag3ra-cai',
     icpHost: config.icpHost ?? 'https://icp-api.io',
     fetchRootKey: config.fetchRootKey ?? false,

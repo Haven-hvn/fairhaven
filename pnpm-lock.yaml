@@ -27,8 +27,8 @@ importers:
   apps/web:
     dependencies:
       '@arkiv-network/sdk':
-        specifier: ^0.8.1
-        version: 0.8.1(typescript@7.0.2)(viem@2.57.11(typescript@7.0.2)(zod@4.6.7))
+        specifier: 1.0.1
+        version: 1.0.1(typescript@7.0.2)(viem@2.57.11(typescript@7.0.2)(zod@4.6.7))
       '@fairhaven/board-core':
         specifier: workspace:*
         version: link:../../packages/board-core
@@ -125,8 +125,8 @@ importers:
   packages/dsh-board:
     dependencies:
       '@arkiv-network/sdk':
-        specifier: '=0.8.1'
-        version: 0.8.1(typescript@7.0.2)(viem@2.57.11(typescript@7.0.2)(zod@4.6.7))
+        specifier: '=1.0.1'
+        version: 1.0.1(typescript@7.0.2)(viem@2.57.11(typescript@7.0.2)(zod@4.6.7))
       '@deepseek-ai/schemastery':
         specifier: ~3.18.5-alpha.2
         version: 3.18.5
@@ -170,8 +170,8 @@ packages:
   '@adraffy/ens-normalize@1.11.1':
     resolution: {integrity: sha512-nhCBV3quEgesuf7c7KYfperqSS14T8bYuvJ8PcLJp6znkZpFc0AuW4qBtr8eKVyPPe/8RSr7sglCWPU5eaxwKQ==}
 
-  '@arkiv-network/sdk@0.8.1':
-    resolution: {integrity: sha512-J2Qn7OOPZet5qGtN2XwLkSEnzk70FZCYDNclS/a4vrYBmsW4xgblTXWrczZXAhD2x4unSgGQwqpGZkBta/x7ow==}
+  '@arkiv-network/sdk@1.0.1':
+    resolution: {integrity: sha512-DCOFdGunn4I5nYrvIV/YIkMCkLZM7EQNSyNPtqpmQkP2JzTEfRLBJleBSB2rokWMa833/9P8DMiwsEXACr3CUQ==}
     engines: {node: '>=18.0.0'}
     peerDependencies:
       typescript: '>=5.0.0'
@@ -3042,9 +3042,8 @@ snapshots:
 
   '@adraffy/ens-normalize@1.11.1': {}
 
-  '@arkiv-network/sdk@0.8.1(typescript@7.0.2)(viem@2.57.11(typescript@7.0.2)(zod@4.6.7))':
+  '@arkiv-network/sdk@1.0.1(typescript@7.0.2)(viem@2.57.11(typescript@7.0.2)(zod@4.6.7))':
     dependencies:
-      brotli-wasm: 3.0.1
       viem: 2.57.11(typescript@7.0.2)(zod@4.6.7)
     optionalDependencies:
       typescript: 7.0.2

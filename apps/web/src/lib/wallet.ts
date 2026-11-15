@@ -12,7 +12,7 @@ import { WagmiAdapter } from '@reown/appkit-adapter-wagmi'
 import { mainnet, base, optimism, arbitrum, sepolia } from '@reown/appkit/networks'
 import type { AppKitNetwork } from '@reown/appkit/networks'
 import { createAppKit } from '@reown/appkit/react'
-import { localhost, tiramisu } from '@arkiv-network/sdk/chains'
+import { localhost, rabdi } from '@arkiv-network/sdk/chains'
 import { env } from './env'
 
 // The Arkiv chain must be a configured network, not just a chain the write
@@ -21,7 +21,8 @@ import { env } from './env'
 // support your current network", killing the flow before the entity prompt.
 // Which Arkiv chain is live follows the configured RPC, as in `lib/post`.
 const localArkiv = env.arkivRpcUrl.includes('localhost') || env.arkivRpcUrl.includes('127.0.0.1')
-export const arkivNetwork = (localArkiv ? localhost : tiramisu) as unknown as AppKitNetwork
+// rabdi() embeds the access key in its RPC URLs; "" selects the public endpoint.
+export const arkivNetwork = (localArkiv ? localhost : rabdi({ accessKey: env.arkivApiKey })) as unknown as AppKitNetwork
 
 export const networks = [base, mainnet, optimism, arbitrum, sepolia, arkivNetwork] as [AppKitNetwork, ...AppKitNetwork[]]
 

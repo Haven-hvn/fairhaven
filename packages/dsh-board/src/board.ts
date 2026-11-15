@@ -16,6 +16,7 @@
 
 import {
   BALANCE_OF_ABI,
+  BOARD_SCHEMA,
   EMPTY_FILTERS,
   MembershipCache,
   VARIANT_TO_EIP155,
@@ -241,14 +242,18 @@ async function liveStore(opts: BoardRuntimeOpts): Promise<EntityStore & { curren
   const { key: keyVal } = await import('@arkiv-network/sdk')
   const { isRateLimitError } = await import('@fairhaven/board-core')
   const { http } = await import('viem')
-  const chain = opts.arkivRpcUrl.includes('localhost') || opts.arkivRpcUrl.includes('127.0.0.1') ? chains.localhost : chains.tiramisu
+  // rabdi() requires an access key argument; "" selects the public endpoint.
+  const chain = opts.arkivRpcUrl.includes('localhost') || opts.arkivRpcUrl.includes('127.0.0.1') ? chains.localhost : chains.rabdi({ accessKey: '' })
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const client: any = createPublicClient({ chain, transport: http(opts.arkivRpcUrl, { retryCount: 0 }) } as never)
-  const selection = (payload: boolean) => ({ key: true, owner: true, createdAt: true, expiresAt: true, attributes: true, ...(payload ? { payload: true } : {}) })
+  const selection = (payload: boolean) => ({ $key: true, $owner: true, $createdAt: true, $expiresAt: true, $attributes: true, ...(payload ? { payload: true } : {}) })
   return {
     async query(where: WhereClause, q: QueryOptions = {}): Promise<QueryPage> {
       let b = client.select(selection(q.payload === true))
-      const clauses = where.map(([k, v]) => (Array.isArray(v) ? or(v.map((x) => eq(k, x as never))) : eq(k, v as never)))
+      const clauses = where.map(([k, v]) => {
+        const pred = (x: unknown) => eq(k, (k === '$key' ? keyVal(String(x) as `0x${string}`) : x) as never)
+        return Array.isArray(v) ? or(v.map(pred)) : pred(v)
+      })
       b = b.where(clauses.length === 1 ? clauses[0] : and(clauses))
       b = b.limit(q.limit ?? 100)
       if (q.cursor) b = b.cursor(q.cursor)
@@ -257,7 +262,7 @@ async function liveStore(opts: BoardRuntimeOpts): Promise<EntityStore & { curren
       return { entities, ...(res.cursor ? { cursor: String(res.cursor) } : {}) }
     },
     async queryOr(clauses: WhereClause[], q: QueryOptions = {}): Promise<QueryPage> {
-      let b = client.select({ key: true, owner: true, createdAt: true, expiresAt: true, attributes: true, ...(q.payload === false ? {} : { payload: true }) })
+      let b = client.select({ $key: true, $owner: true, $createdAt: true, $expiresAt: true, $attributes: true, ...(q.payload === false ? {} : { payload: true }) })
       const clause = (k: string, v: string | number | readonly string[]) => k === '$key' ? eq('$key', keyVal(String(v) as `0x${string}`)) : Array.isArray(v) ? or(v.map((x) => eq(k, x as never))) : eq(k, v as never)
       const sets = clauses.map((set) => { const cs = set.map(([k, v]) => clause(k, v)); return cs.length === 1 ? cs[0]! : and(cs) })
       b = b.where(sets.length === 1 ? sets[0] : or(sets))
@@ -268,7 +273,7 @@ async function liveStore(opts: BoardRuntimeOpts): Promise<EntityStore & { curren
     },
     async getMany(keys: string[]): Promise<RawEntity[]> {
       if (keys.length === 0) return []
-      let b = client.select({ key: true, owner: true, createdAt: true, expiresAt: true, attributes: true, payload: true })
+      let b = client.select({ $key: true, $owner: true, $createdAt: true, $expiresAt: true, $attributes: true, payload: true })
       b = b.where(or(keys.map((k) => eq('$key', keyVal(k as `0x${string}`)))))
       b = b.limit(Math.max(keys.length, 1))
       const res = await b.fetch()
@@ -299,9 +304,11 @@ async function liveWriter(opts: BoardRuntimeOpts, getPrivateKey: () => Promise<s
   // bypass ctx.arkiv (ArkivRuntime) because its Haven media validator rejects
   // text-only board records.
   const mod = (await import('dsh-arkiv/arkiv')) as unknown as {
-    ArkivBackend: new (o: { privateKeyRef: string; getPrivateKey: () => Promise<string>; rpcUrl: string }) => ArkivWriter
+    ArkivBackend: new (o: { privateKeyRef: string; getPrivateKey: () => Promise<string>; rpcUrl: string; schema?: unknown }) => ArkivWriter
   }
-  return new mod.ArkivBackend({ privateKeyRef: opts.privateKeyRef, getPrivateKey, rpcUrl: opts.arkivRpcUrl })
+  // BOARD_SCHEMA: board attributes are not HavenFullSchema columns, so the
+  // backend must not pick a schema from `grp`.
+  return new mod.ArkivBackend({ privateKeyRef: opts.privateKeyRef, getPrivateKey, rpcUrl: opts.arkivRpcUrl, schema: BOARD_SCHEMA })
 }
 
 async function liveAol(opts: BoardRuntimeOpts, signGate: ((digestHex: `0x${string}`) => Promise<`0x${string}`>) | undefined): Promise<AolSeam> {

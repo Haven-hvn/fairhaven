@@ -5,10 +5,10 @@ database**. Every board, shared file, thread and reply is an Arkiv entity writte
 wallet. Readers reconstruct the whole index from Arkiv queries alone, and the bytes live on
 Filecoin/IPFS.
 
-- **Network:** Arkiv Tiramisu testnet · chain id `7738577`
-- **HTTP RPC:** `https://rpc.tiramisu.db-chain.testnet.arkiv.network`
-- **WebSocket RPC:** `wss://rpc.tiramisu.db-chain.testnet.arkiv.network`
-- **SDK:** `@arkiv-network/sdk` `0.8.1` (`viem` `2.57.0`)
+- **Network:** Arkiv Rabdi testnet · chain id `7794095`
+- **HTTP RPC:** `https://rpc.rabdi.db-chain.testnet.arkiv.network`
+- **WebSocket RPC:** `wss://rpc.rabdi.db-chain.testnet.arkiv.network`
+- **SDK:** `@arkiv-network/sdk` `1.0.1` (`viem` `2.57.0`)
 - **Entity contract:** `0x4400000000000000000000000000000000000044`
 - **Live deployment:** `https://fairhaven.pinme.dev/`
 - **Implementation of record:** [`packages/board-core/src/codec.ts`](../packages/board-core/src/codec.ts)
@@ -168,7 +168,7 @@ Implementation and vectors:
 | `haven.board.thread` | 14 days | Long enough for a slow conversation, short enough that the board is ephemeral. |
 | `haven.board.post` | 7 days | Replies live shorter than what they reply to. |
 
-- Expiry is Arkiv `ExpirationTime.fromBlocks(blocks)`, and Tiramisu runs at a nominal **2 s/block**
+- Expiry is Arkiv `ExpirationTime.fromBlocks(blocks)`, and Rabdi runs at a nominal **2 s/block**
   ([`constants.ts` `BLOCK_TIME_S`](../packages/board-core/src/constants.ts)).
 - A reply's TTL is **clamped to the root's remaining life** (`clampPostTtl`), so a reply can never
   outlive its thread.
@@ -218,7 +218,7 @@ All queries go through one `EntityStore` built on `@arkiv-network/sdk`:
 
 ### Read budget
 
-The public Tiramisu RPC bills a flat **100 units per charged `arkiv_query`** at roughly **100 charged
+The public Rabdi RPC bills a flat **100 units per charged `arkiv_query`** at roughly **100 charged
 calls/hour/IP**. With an access key the edge limit rises to ~10 k requests/min and the gateway
 returns `Arkiv-Quota-Used-Percent`, which the budgeter already reads. The key comes from the
 `ARKIV_API_KEY` repo secret, is inlined as `NEXT_PUBLIC_ARKIV_API_KEY`, and is sent as `X-API-KEY`
@@ -253,8 +253,8 @@ verify someone else's post.
 
 ## 9. Write path
 
-1. The poster's wallet switches to Tiramisu (added via `wallet_addEthereumChain` if unknown: chain id
-   `7738577`).
+1. The poster's wallet switches to Rabdi (added via `wallet_addEthereumChain` if unknown: chain id
+   `7794095`).
 2. Attributes are built and typed by `board-core`'s writers (`buildDefWrite`, `buildThreadWrite`,
    `buildPostWrite`), which emit `i32` / `str` / `u256` cells with the SDK's `i32`, `str`, `u256`
    constructors.
@@ -344,23 +344,25 @@ node arkiv-verify.mjs
 ```
 
 ```js
-// Prints every Fairhaven thread, reply and board on Tiramisu.
-import { createPublicClient, key } from '@arkiv-network/sdk'
-import * as chains from '@arkiv-network/sdk/chains'
-import { eq, or, and } from '@arkiv-network/sdk/query'
-import { str } from '@arkiv-network/sdk/attr'
+// Prints every Fairhaven thread, reply and board on Rabdi (SDK 1.x).
+import { createPublicClient } from '@arkiv-network/sdk'
+import { rabdi } from '@arkiv-network/sdk/chains'
+import { eq, or, and, key } from '@arkiv-network/sdk/query'
+import { str } from '@arkiv-network/sdk/schema'
 import { http } from 'viem'
 
 const client = createPublicClient({
-  chain: chains.tiramisu,
-  transport: http('https://rpc.tiramisu.db-chain.testnet.arkiv.network', { retryCount: 0 }),
+  chain: rabdi({ accessKey: '' }),
+  transport: http('https://rpc.rabdi.db-chain.testnet.arkiv.network', { retryCount: 0 }),
 })
 
-const selection = { key: true, owner: true, createdAt: true, expiresAt: true, attributes: true, payload: true }
+// SDK 1.x returns flat rows: system fields are `$`-prefixed and `payload`
+// (a `bytes` column) comes back tagged `{ type, value }`.
+const selection = { $key: true, $owner: true, $createdAt: true, $expiresAt: true, $attributes: true, payload: true }
 
 for (const grp of ['haven.board.def', 'haven.board.thread', 'haven.board.post']) {
   const res = await client.select(selection).where(eq('grp', str(grp))).limit(20).fetch()
-  for (const e of res.entities) console.log(grp, e.key, e.owner, e.createdAt, e.expiresAt, e.attributes)
+  for (const e of res.entities) console.log(grp, e.$key, e.$owner, e.$createdAt, e.$expiresAt, e.$attributes)
 }
 
 // One thread and its replies in a single charged query (the loadThread pattern):
@@ -371,8 +373,5 @@ for (const grp of ['haven.board.def', 'haven.board.thread', 'haven.board.post'])
 // )).limit(100).fetch()
 ```
 
-- `key / owner / createdAt / expiresAt` are the system attributes (`$key`, `$creator`, `$createdAt`,
-  `$expiresAt`).
-- `attributes` is the typed map described in §2; `payload` is the JSON in §4.
-- To list **who created entities** (the wallets a judge should see), group the `owner` field of the
-  rows above — `haven.board.def` rows give the board creators.
+- `$key` / `$owner` / `$createdAt` / `$expiresAt` are the system fields; `$attributes` is the typed
+  map described in §2 and `payload` is the JSON in §4.

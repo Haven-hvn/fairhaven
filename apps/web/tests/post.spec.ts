@@ -74,7 +74,7 @@ describe('submitReply (public)', () => {
           case 'wallet_switchEthereumChain':
             return null
           case 'eth_chainId':
-            return '0x7614d1' // 7738577, Arkiv tiramisu
+            return '0x76edaf' // 7794095, Arkiv Rabdi
           case 'eth_blockNumber':
             return '0x64'
           case 'eth_getTransactionCount':
@@ -198,7 +198,7 @@ describe('submitReply (public)', () => {
         text: 'hello', sealText: false, noBump: false,
       })
       if (refuseSwitch) {
-        // viem will not send a Tiramisu tx from Base, so a refused switch
+        // viem will not send a Rabdi tx from Base, so a refused switch
         // must fail the post — but the wallet stays on Base, not stranded.
         await expect(attempt).rejects.toThrow(/did not switch to the Arkiv chain/)
         expect(currentChain).toBe('0x2105')
@@ -208,7 +208,7 @@ describe('submitReply (public)', () => {
       expect(res).toEqual({ key: ENTITY_KEY, txHash: TX_HASH })
       // Switched to Arkiv for the tx, then back to Base — never left on a
       // chain AppKit does not support.
-      expect(switches).toEqual(['0x7614d1', '0x2105'])
+      expect(switches).toEqual(['0x76edaf', '0x2105'])
       expect(currentChain).toBe('0x2105')
     }
   })

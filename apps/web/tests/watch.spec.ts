@@ -4,7 +4,7 @@ import { isBoardRow, keyTouchesThread, openThreadOf, rowsIncludeDef, rowsTouchTh
 
 /**
  * Regression: the chain-wide entity watch fetched payloads for every Arkiv
- * event (~1/s on Tiramisu, almost none of them board posts) and then
+ * event (~1/s on Rabdi, almost none of them board posts) and then
  * reloaded `['thread']` / `['boards']` unconditionally. Only a fetched
  * board definition may reload the directory, and only a row touching the
  * open thread may reload it.
