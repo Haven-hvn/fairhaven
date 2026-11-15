@@ -105,6 +105,9 @@ importers:
 
   packages/board-core:
     dependencies:
+      '@arkiv-network/sdk':
+        specifier: '=1.0.1'
+        version: 1.0.1(typescript@7.0.2)(viem@2.57.11(typescript@7.0.2)(zod@4.6.7))
       '@noble/curves':
         specifier: 2.4.0
         version: 2.4.0
@@ -1722,6 +1725,7 @@ packages:
 
   axios-retry@4.5.0:
     resolution: {integrity: sha512-aR99oXhpEDGo0UuAlYcn2iGRds30k366Zfa05XWScR9QaQD4JYiP3/1Qt1u7YlefUOK+cn0CcwoL1oefavQUlQ==}
+    deprecated: axios-retry is no longer maintained. See https://github.com/softonic/axios-retry for alternatives.
     peerDependencies:
       axios: 0.x || 1.x
 
@@ -1751,10 +1755,6 @@ packages:
 
   blurhash@2.0.5:
     resolution: {integrity: sha512-cRygWd7kGBQO3VEhPiTgq4Wc43ctsM+o46urrmPOiuAe+07fzlSB9OJVdpgDL0jPqXUVQ9ht7aq7kxOeJHRK+w==}
-
-  brotli-wasm@3.0.1:
-    resolution: {integrity: sha512-U3K72/JAi3jITpdhZBqzSUq+DUY697tLxOuFXB+FpAE/Ug+5C3VZrv4uA674EUZHxNAuQ9wETXNqQkxZD6oL4A==}
-    engines: {node: '>=v18.0.0'}
 
   bs58@6.0.0:
     resolution: {integrity: sha512-PD0wEnEYg6ijszw/u8s+iI3H17cTymlrwkKhDhPZq+Sokl3AU4htyBFTjAeNAlCCmg0f53g6ih3jATyCKftTfw==}
@@ -5114,8 +5114,6 @@ snapshots:
   blakejs@1.2.1: {}
 
   blurhash@2.0.5: {}
-
-  brotli-wasm@3.0.1: {}
 
   bs58@6.0.0:
     dependencies:
