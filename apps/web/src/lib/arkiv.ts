@@ -136,7 +136,7 @@ async function query(where: WhereClause, opts: QueryOptions = {}): Promise<Query
     let b = c.select(selection(opts.payload === true))
     // $key predicates need the `key` type — a bare string predicates as `str` and silently misses.
     const clauses = where.map(([k, v]) => {
-      const pred = (x: unknown) => eq(k, (k === '$key' ? keyAttr(String(x)) : x) as never)
+      const pred = (x: unknown) => eq(k, (k === '$key' ? keyAttr(String(x) as `0x${string}`) : x) as never)
       return Array.isArray(v) ? or(v.map(pred)) : pred(v)
     })
     b = b.where(clauses.length === 1 ? clauses[0] : and(clauses))
@@ -158,7 +158,7 @@ async function getMany(keys: string[], opts: { payload?: boolean } = {}): Promis
     const { key: keyAttr } = await import('@arkiv-network/sdk/schema')
     const selection = { $key: true, $owner: true, $createdAt: true, $expiresAt: true, $attributes: true, payload: true }
     let b = c.select(selection)
-    b = b.where(or(keys.map((k) => eq('$key', keyAttr(k) as never))))
+    b = b.where(or(keys.map((k) => eq('$key', keyAttr(k as `0x${string}`) as never))))
     b = b.limit(Math.max(keys.length, 1))
     const res = await b.fetch()
     return ((res.entities ?? []) as unknown[]).map((r) => toRawEntity(r as Record<string, unknown>)).filter((e): e is RawEntity => e !== undefined)
@@ -173,7 +173,7 @@ async function queryOr(clauses: WhereClause[], opts: QueryOptions = {}): Promise
     const { key: keyAttr } = await import('@arkiv-network/sdk/schema')
     const selection = { $key: true, $owner: true, $createdAt: true, $expiresAt: true, $attributes: true, ...(opts.payload === false ? {} : { payload: true }) }
     let b = c.select(selection)
-    const clause = (k: string, v: string | number | readonly string[]) => k === '$key' ? eq('$key', keyAttr(String(v)) as never) : Array.isArray(v) ? or(v.map((x) => eq(k, x as never))) : eq(k, v as never)
+    const clause = (k: string, v: string | number | readonly string[]) => k === '$key' ? eq('$key', keyAttr(String(v) as `0x${string}`) as never) : Array.isArray(v) ? or(v.map((x) => eq(k, x as never))) : eq(k, v as never)
     const sets = clauses.map((set) => { const cs = set.map(([k, v]) => clause(k, v)); return cs.length === 1 ? cs[0]! : and(cs) })
     b = b.where(sets.length === 1 ? sets[0] : or(sets))
     b = b.limit(opts.limit ?? 100)
