@@ -43,7 +43,7 @@ import { arkivStore, watchEntities } from '@/lib/arkiv'
 import { isBoardRow, keyTouchesThread, openThreadOf, rowsIncludeDef, rowsTouchThread, type OpenThread } from '@/lib/watch'
 import { persistedCount } from '@/lib/persist'
 import { membership } from '@/lib/evm'
-import { hasUnlocked, openSealedText, parseGateJson, unlock, type WalletClientLike } from '@/lib/aol'
+import { hasUnlocked, openSealedText, parseGateJson, restoreFromOsBridge, unlock, type WalletClientLike } from '@/lib/aol'
 import { clockNow, verifyAuthors } from '@/lib/receipt'
 import { useSession } from '@/store/session'
 
@@ -333,6 +333,16 @@ export function useUnlock(gate: BoardGate | undefined) {
   const [error, setError] = useState<string | null>(null)
   const epoch = currentEpoch()
   const unlocked = useMemo(() => (gate ? hasUnlocked(gate, epoch) : false), [gate, epoch, version])
+  useEffect(() => {
+    if (!gate || unlocked) return
+    let cancelled = false
+    void restoreFromOsBridge(gate, epoch).then((ok) => {
+      if (ok && !cancelled) bump()
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [gate, epoch, unlocked, version, bump])
   const run = useCallback(
     async (targetEpoch: number = epoch) => {
       if (!gate || !walletClient) return false
@@ -359,6 +369,7 @@ export type OpenState = { state: 'clear' | 'open'; text: string } | { state: 'lo
 
 export function useOpenText(rec: ThreadRecord | PostRecord | undefined, gate: BoardGate | undefined) {
   const version = useSession((s) => s.unlockVersion)
+  const bump = useSession((s) => s.bumpUnlock)
   const [st, setSt] = useState<OpenState>({ state: 'locked' })
   useEffect(() => {
     let cancelled = false
@@ -386,6 +397,9 @@ export function useOpenText(rec: ThreadRecord | PostRecord | undefined, gate: Bo
         return
       }
       if (!gate || !hasUnlocked(g.gate, g.epoch)) {
+        void restoreFromOsBridge(g.gate, g.epoch).then((ok) => {
+          if (ok && !cancelled) bump()
+        })
         setSt({ state: 'locked', epoch: g.epoch })
         return
       }

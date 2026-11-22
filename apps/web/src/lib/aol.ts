@@ -83,6 +83,40 @@ export function forgetKeys(): void {
   vetKeys.clear()
 }
 
+const bridgeRestoring = new Map<string, Promise<boolean>>()
+
+/**
+ * Check if the parent Haven OS host already holds the VetKey for `(gate, epoch)`
+ * and import it into this iframe's in-memory cache with zero signature prompt.
+ */
+export function restoreFromOsBridge(gate: BoardGate, epoch: number): Promise<boolean> {
+  const ck = cacheKey(gate, epoch)
+  if (vetKeys.has(ck)) return Promise.resolve(true)
+  const existing = bridgeRestoring.get(ck)
+  if (existing) return existing
+  const p = (async () => {
+    try {
+      const sdk = await import('haven-aol')
+      const bridge = sdk.getHavenOsBridge()
+      if (!bridge?.connectedToHost) return false
+      const res = await bridge.getGateKey({
+        chainVariant: gate.chain,
+        tokenAddress: gate.tokenAddress,
+        threshold: gate.threshold.toString(),
+        epoch,
+      })
+      if (!res?.vetKeyBase64) return false
+      const vetkeys = await import('@icp-sdk/vetkeys')
+      vetKeys.set(ck, vetkeys.VetKey.deserialize(fromBase64(res.vetKeyBase64)))
+      return true
+    } catch {
+      return false
+    }
+  })().finally(() => bridgeRestoring.delete(ck))
+  bridgeRestoring.set(ck, p)
+  return p
+}
+
 // ── Signing on the EIP-712 chain ────────────────────────────────────────────
 // viem's `signTypedData` rejects when the signature domain's `chainId`
 // differs from the wallet's active chain ("Active chainId is 0x2105 but
@@ -217,6 +251,32 @@ export async function unlock(wallet: WalletClientLike, gate: BoardGate, epoch: n
   const address = wallet.account.address
   if (!address) throw new Error('wallet not connected')
   const sdk = await import('haven-aol')
+  // 1. Reuse already-unlocked epoch key from parent Haven OS keyring if available
+  if (await restoreFromOsBridge(gate, epoch)) {
+    onProgress?.(null)
+    return
+  }
+  // 2. When embedded inside Haven OS, delegate unlock so other Haven apps share it too
+  const bridge = sdk.getHavenOsBridge()
+  if (bridge?.connectedToHost) {
+    try {
+      onProgress?.('Unlocking via Haven OS keyring…')
+      const res = await bridge.unlockGate({
+        chainVariant: gate.chain,
+        tokenAddress: gate.tokenAddress,
+        threshold: gate.threshold.toString(),
+        epoch,
+      })
+      if (res?.vetKeyBase64) {
+        const vetkeys = await import('@icp-sdk/vetkeys')
+        vetKeys.set(cacheKey(gate, epoch), vetkeys.VetKey.deserialize(fromBase64(res.vetKeyBase64)))
+        onProgress?.(null)
+        return
+      }
+    } catch {
+      // Fall through to local GateRequestV3 flow if host does not support VetKey export
+    }
+  }
   onProgress?.('Preparing signature…')
   const { secretKey, publicKey } = sdk.createTransportKeyPair()
   const nonce = randomNonce()
