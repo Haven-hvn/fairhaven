@@ -13,8 +13,8 @@
   "dependencies": {
     "@arkiv-network/sdk": "1.0.1",
     "@fairhaven/board-core": "workspace:*",
-    "@filoz/synapse-core": "^0.11.0",
-    "@filoz/synapse-sdk": "2.0.2",    "@icp-sdk/core": "6.1.1",
+    "@filoz/synapse-core": "^0.11.1",
+    "@filoz/synapse-sdk": "3.0.1",    "@icp-sdk/core": "6.1.1",
     "@icp-sdk/vetkeys": "0.7.0",
     "@react-native-async-storage/async-storage": "3.1.1",
     "@reown/appkit": "2.0.0-wagmi-3.0",
@@ -28,7 +28,7 @@
     "next": "16.4.3",
     "react": "19.3.1",
     "react-dom": "19.3.1",
-    "viem": "2.57.11",
+    "viem": "2.58.6",
     "wagmi": "3.7.9",
     "zustand": "5.0.16"
   },
