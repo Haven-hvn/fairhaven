@@ -27,7 +27,7 @@ fairhaven/
 | Layer | Provided by | Fairhaven's use |
 |---|---|---|
 | Index | Arkiv (`0x44…0044`, `arkiv_query`) | `haven.board.def` / `.thread` / `.post` entities; reads `haven.*.full` as thread roots |
-| Access | Haven-AOL canister `gny6k-fqaaa-aaaab-ag3ra-cai` | v3 epoch key per `(chain, token, threshold, epoch)`; EIP-712 `GateRequestV3` |
+| Access | Haven-AOL canister `3gzy3-kaaaa-aaaan-q6y6q-cai` | v3 epoch key per `(chain, token, threshold, epoch)`; EIP-712 `GateRequestV3` |
 | Bytes | Arkiv payload (text), Filecoin via Synapse (media) | text inline (hard expiry, no gateway), media as piece/root CID |
 | Gate | any EVM | canister receipt (`attestHolding`) per member per epoch, verified client-side per post; `balanceOf` only for your own wallet |
 

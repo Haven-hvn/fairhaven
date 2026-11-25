@@ -59,7 +59,7 @@ treasury-policy row.
     wallet: agent
     privateKeyRef: AGENT_EVM_KEY        # credential NAME, never a key
     arkivRpcUrl: https://rpc.rabdi.db-chain.testnet.arkiv.network
-    canisterId: gny6k-fqaaa-aaaab-ag3ra-cai
+    canisterId: 3gzy3-kaaaa-aaaan-q6y6q-cai
     icpHost: https://icp-api.io
     memberCheck: true                    # verify receipts offline (default)
     # attestPublicKey: <64 hex>          # pin the canister attestation key

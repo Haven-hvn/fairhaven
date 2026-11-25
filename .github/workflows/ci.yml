@@ -96,7 +96,7 @@ jobs:
         env:
           NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID }}
           NEXT_PUBLIC_ARKIV_RPC_URL: ${{ vars.NEXT_PUBLIC_ARKIV_RPC_URL || 'https://rpc.rabdi.db-chain.testnet.arkiv.network' }}
-          NEXT_PUBLIC_HAVEN_AOL_CANISTER_ID: ${{ vars.NEXT_PUBLIC_HAVEN_AOL_CANISTER_ID || 'gny6k-fqaaa-aaaab-ag3ra-cai' }}
+          NEXT_PUBLIC_HAVEN_AOL_CANISTER_ID: ${{ vars.NEXT_PUBLIC_HAVEN_AOL_CANISTER_ID || '3gzy3-kaaaa-aaaan-q6y6q-cai' }}
           NEXT_PUBLIC_EIP712_CHAIN_ID: ${{ vars.NEXT_PUBLIC_EIP712_CHAIN_ID || '1' }}
           NEXT_PUBLIC_EIP712_VERIFYING_CONTRACT: ${{ vars.NEXT_PUBLIC_EIP712_VERIFYING_CONTRACT || '0x0000000000000000000000000000000000000000' }}
         run: pnpm run build

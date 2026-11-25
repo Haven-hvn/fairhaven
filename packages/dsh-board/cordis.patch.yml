@@ -27,7 +27,7 @@
         wallet: agent
         privateKeyRef: AGENT_EVM_KEY
         arkivRpcUrl: https://rpc.rabdi.db-chain.testnet.arkiv.network
-        canisterId: gny6k-fqaaa-aaaab-ag3ra-cai
+        canisterId: 3gzy3-kaaaa-aaaan-q6y6q-cai
         icpHost: https://icp-api.io
         fetchRootKey: false
         memberCheck: true        # verify every post's canister receipt offline

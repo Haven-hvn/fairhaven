@@ -46,7 +46,7 @@ export const env: Env = {
   arkivRpcUrl: str(process.env.NEXT_PUBLIC_ARKIV_RPC_URL, 'https://rpc.rabdi.db-chain.testnet.arkiv.network'),
   arkivApiKey: str(process.env.NEXT_PUBLIC_ARKIV_API_KEY, ''),
   icpHost: str(process.env.NEXT_PUBLIC_ICP_HOST, 'https://icp-api.io'),
-  havenAolCanisterId: str(process.env.NEXT_PUBLIC_HAVEN_AOL_CANISTER_ID, 'gny6k-fqaaa-aaaab-ag3ra-cai'),
+  havenAolCanisterId: str(process.env.NEXT_PUBLIC_HAVEN_AOL_CANISTER_ID, '3gzy3-kaaaa-aaaan-q6y6q-cai'),
   eip712ChainId: BigInt(str(process.env.NEXT_PUBLIC_EIP712_CHAIN_ID, '1')),
   eip712VerifyingContract: str(process.env.NEXT_PUBLIC_EIP712_VERIFYING_CONTRACT, '0x0000000000000000000000000000000000000000'),
   fetchRootKey: str(process.env.NEXT_PUBLIC_HAVEN_AOL_FETCH_ROOT_KEY, 'false') === 'true',

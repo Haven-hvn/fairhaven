@@ -139,7 +139,7 @@ const OPTS: BoardRuntimeOpts = {
   wallet: 'agent',
   privateKeyRef: 'AGENT_EVM_KEY',
   arkivRpcUrl: 'http://localhost:8545',
-  canisterId: 'gny6k-fqaaa-aaaab-ag3ra-cai',
+  canisterId: '3gzy3-kaaaa-aaaan-q6y6q-cai',
   icpHost: 'https://icp-api.io',
   fetchRootKey: false,
   memberCheck: true,

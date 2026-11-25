@@ -66,7 +66,7 @@ moderation roles.
 ```
 
 Lower layers, unchanged: Arkiv (entity trie, `arkiv_query`), Haven-AOL canister
-`gny6k-fqaaa-aaaab-ag3ra-cai` (ecrecover, `balanceOf`, VetKD), any EVM (the gate),
+`3gzy3-kaaaa-aaaan-q6y6q-cai` (ecrecover, `balanceOf`, VetKD), any EVM (the gate),
 Filecoin/Synapse (media bytes).
 
 ### Post flow
