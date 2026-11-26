@@ -51,7 +51,7 @@ jobs:
           corepack prepare pnpm@11 --activate
 
       - name: Install
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
 
       - name: Build Haven-AOL SDK
         working-directory: apps/web/haven-aol/packages/typescript
